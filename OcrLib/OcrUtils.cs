@@ -87,8 +87,6 @@ namespace OcrLiteLib
 
         public static Mat GetRotateCropImage(Mat src, List<Point> box)
         {
-            Mat image = new Mat();
-            src.CopyTo(image);
             List<Point> points = new List<Point>();
             points.AddRange(box);
 
@@ -100,7 +98,7 @@ namespace OcrLiteLib
             int bottom = collectY.Max();
 
             Rectangle rect = new Rectangle(left, top, right - left, bottom - top);
-            Mat imgCrop = new Mat(image, rect);
+            Mat imgCrop = new Mat(src, rect);
 
             for (int i = 0; i < points.Count; i++)
             {
