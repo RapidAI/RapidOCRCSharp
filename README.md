@@ -137,3 +137,7 @@ public async Task<OcrResult> DetectAsync(string imgFile, int padding = 50, int m
 - 支持WEB端的示例;
 - 识别表格，还原表格样式;
 - 自动下载模型;
+
+### 联系方式
+
+[QQ群](https://rapidai.github.io/RapidOCRDocs/main/communicate/#qq)

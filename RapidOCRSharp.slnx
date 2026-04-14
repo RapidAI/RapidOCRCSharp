@@ -1,5 +1,0 @@
-<Solution>
-  <Project Path="RapidOCRConsole/RapidOCRConsole.csproj" />
-  <Project Path="RapidOCRLib/RapidOCRLib.csproj" />
-  <Project Path="RapidOCRWinform/RapidOCRWinform.csproj" Id="b4463fc7-71e8-499e-8c1b-96c8cd201274" />
-</Solution>
