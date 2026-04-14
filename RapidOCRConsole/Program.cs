@@ -6,6 +6,7 @@ using System.Drawing.Imaging;
 using System.Threading.Tasks;
 
 var path = Path.Combine(AppContext.BaseDirectory, "models");
+//Initialize model.
 OcrLite ocrEngin = new OcrLite()
 {
     DetPath = Path.Combine(path, "ch_PP-OCRv5_mobile_det.onnx"),
@@ -15,9 +16,10 @@ OcrLite ocrEngin = new OcrLite()
 };
 
 await ocrEngin.InitModels();
-
+//get the image will be ocr.
 var demoWillOCRFile = Path.Combine(AppContext.BaseDirectory, "Assets", "demo.png");
-var result = ocrEngin.Detect(demoWillOCRFile, 0);
+//ocr detect
+var result = ocrEngin.Detect(demoWillOCRFile, 50);
 if (result != null)
 {
     Console.WriteLine(result.ToString());

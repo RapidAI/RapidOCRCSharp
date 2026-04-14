@@ -1,17 +1,38 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
+		<PlatformTarget>AnyCPU</PlatformTarget>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Clipper2" Version="2.0.0" />
-    <PackageReference Include="Emgu.CV" Version="4.12.0.5764" />
-    <PackageReference Include="Emgu.CV.Bitmap" Version="4.12.0.5764" />
-    <PackageReference Include="Emgu.CV.runtime.windows" Version="4.12.0.5764" />
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.24.4" />
-    <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" Version="1.24.4" />
-  </ItemGroup>
+	<PropertyGroup>
+		<PackageId>RapidOCRLib</PackageId>
+		<PackageVersion>0.9.3</PackageVersion>
+		<Authors>RapidAI</Authors>
+		<PackageIcon>icon.png</PackageIcon>
+		<Product>RapidAI</Product>
+		<Description>RapidOCR is a completely open-source, free OCR tool that supports multi-platform, multi-language operation and rapid offline deployment.</Description>
+		<Copyright>Copyright 2026 RapidAI</Copyright>
+		<RepositoryUrl>https://github.com/RapidAI/RapidOCRCSharp</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageReleaseNotes></PackageReleaseNotes>
+		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+		<PackageTags>OCR,.NET OCR</PackageTags>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Clipper2" Version="2.0.0" />
+		<PackageReference Include="Emgu.CV" Version="4.12.0.5764" />
+		<PackageReference Include="Emgu.CV.Bitmap" Version="4.12.0.5764" />
+		<PackageReference Include="Emgu.CV.runtime.windows" Version="4.12.0.5764" />
+		<PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.24.4" />
+		<PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" Version="1.24.4" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="..\README.md" Pack="true" PackagePath="\" />
+		<None Include="..\Assets\icon.png" Pack="true" PackagePath="\" />
+	</ItemGroup>
 
 </Project>
