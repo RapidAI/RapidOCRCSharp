@@ -1,7 +1,7 @@
 ﻿using Emgu.CV;
 using System;
 
-namespace RapidOCRLib
+namespace RapidOCRLib.Models
 {
     class ScaleParam
     {

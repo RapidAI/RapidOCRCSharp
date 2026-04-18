@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Text;
 
-namespace RapidOCRLib
+namespace RapidOCRLib.Models
 {
     public sealed class TextBox
     {

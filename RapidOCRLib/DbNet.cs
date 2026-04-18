@@ -5,6 +5,7 @@ using Emgu.CV.Structure;
 using Emgu.CV.Util;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
+using RapidOCRLib.Models;
 using System;
 using System.Collections.Generic;
 using System.Drawing;

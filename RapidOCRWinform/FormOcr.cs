@@ -1,6 +1,7 @@
 ﻿using Emgu.CV;
 using Emgu.CV.CvEnum;
 using RapidOCRLib;
+using RapidOCRLib.Models;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -11,12 +12,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.IO;
 
 namespace RapidOCRWinform
 {
     public partial class FormOcr : Form
     {
-        private OcrLite ocrEngin;
+        private OcrLite? ocrEngin;
 
         public FormOcr()
         {
@@ -26,7 +28,7 @@ namespace RapidOCRWinform
         private async void Form1_Load(object sender, EventArgs e)
         {
             string appPath = AppDomain.CurrentDomain.BaseDirectory;
-            string appDir = Directory.GetParent(appPath).FullName;
+            string appDir = Directory.GetParent(appPath)!.FullName;
             string modelsDir = appPath + "models";
             modelsTextBox.Text = modelsDir;
             string detPath = modelsDir + "\\" + detNameTextBox.Text;
@@ -161,12 +163,12 @@ namespace RapidOCRWinform
 
         private void partImgCheckBox_CheckedChanged(object sender, EventArgs e)
         {
-            ocrEngin.isPartImg = partImgCheckBox.Checked;
+            ocrEngin!.isPartImg = partImgCheckBox.Checked;
         }
 
         private void debugCheckBox_CheckedChanged(object sender, EventArgs e)
         {
-            ocrEngin.isDebugImg = debugCheckBox.Checked;
+            ocrEngin!.isDebugImg = debugCheckBox.Checked;
         }
 
         private void pictureBox_MouseDoubleClick(object sender, MouseEventArgs e)

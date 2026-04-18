@@ -1,6 +1,7 @@
 ﻿using Emgu.CV;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Structure;
+using RapidOCRLib.Models;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -48,7 +49,9 @@ namespace RapidOCRLib
         {
             using (var ms = new MemoryStream())
             {
+                #pragma warning disable CA1416
                 image.Save(ms, image.RawFormat);
+                #pragma warning restore CA1416
                 return await DetectAsync(ms, padding, maxSideLen, boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
             }
         }

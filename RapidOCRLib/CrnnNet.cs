@@ -1,6 +1,7 @@
 ﻿using Emgu.CV;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
+using RapidOCRLib.Models;
 using System;
 using System.Collections.Generic;
 using System.Drawing;

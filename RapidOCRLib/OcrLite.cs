@@ -2,6 +2,7 @@
 using Emgu.CV.CvEnum;
 using Emgu.CV.Reg;
 using Emgu.CV.Structure;
+using RapidOCRLib.Models;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -35,6 +36,10 @@ namespace RapidOCRLib
         /// The path of the Key dictionary file.
         /// </summary>
         public string KeyDicPath { get; set; }
+        /// <summary>
+        /// cpu thread number,default is 70% of toal logic cpu core numbers.
+        /// </summary>
+        public int ThreadNum { get; set; } = (int)(Environment.ProcessorCount * 0.7);
 
         /// <summary>
         /// Initialize OCR Engine
@@ -68,13 +73,23 @@ namespace RapidOCRLib
         }
 
         /// <summary>
+        /// Initialize the engine using the ModeOptions class.
+        /// </summary>
+        /// <param name="options"><see cref="ModeOptions"></param>
+        /// <returns></returns>
+        public async Task InitModels(ModeOptions options)
+        {
+            await InitModels(options.DetPath, options.ClsPath, options.RecPath, options.KeyDicPath, options.ThreadNum);
+        }
+
+        /// <summary>
         /// Initialize OCR Engine
         /// </summary>
         /// <param name="detPath">The path of the Det model file.</param>
         /// <param name="clsPath">he path of the Rec model file.</param>
         /// <param name="recPath">The path of the Rec model file.</param>
         /// <param name="keysPath">The path of the Key dictionary file.</param>
-        /// <param name="numThread">The number of CPU threads to use. If set to 0 (the default), the system's logical CPU cores will be used.</param>
+        /// <param name="numThread">The number of CPU threads to use. If set to 0 (the default), the system's logical CPU 70% cores will be used.</param>
         /// <returns></returns>
         public async Task InitModels(string detPath, string clsPath, string recPath, string keysPath, int numThread = 0)
         {
@@ -82,10 +97,13 @@ namespace RapidOCRLib
             {
                 _InitModelFiles(detPath, clsPath, recPath, keysPath);
                 _CheckModelFilesExist();
-                _ = numThread == 0 ? numThread = Environment.ProcessorCount : numThread;
-                await dbNet.InitModel(this.DetPath, numThread);
-                await angleNet.InitModel(this.ClsPath, numThread);
-                await crnnNet.InitModel(this.RecPath, keysPath, numThread);
+                if (numThread > 0)
+                {
+                    ThreadNum = numThread;
+                }
+                await dbNet.InitModel(this.DetPath, ThreadNum);
+                await angleNet.InitModel(this.ClsPath, ThreadNum);
+                await crnnNet.InitModel(this.RecPath, keysPath, ThreadNum);
             }
             catch (Exception ex)
             {
@@ -150,7 +168,9 @@ namespace RapidOCRLib
         {
             using (var ms = new MemoryStream())
             {
+#pragma warning disable CA1416
                 image.Save(ms, image.RawFormat);
+#pragma warning restore CA1416
                 return Detect(ms, padding, maxSideLen, boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
             }
         }
