@@ -1,50 +1,73 @@
-# RapidOCRCharp
+
+# RapidOCRSharp
 
 Open source OCR for the security of the digital world
 
 Join our [Discord](https://discord.gg/33eyQJq498)
 
+[简体中文](./README_zh.md) | English
 
-简体中文 | [English](./README_en.md)
+---
 
+## 📝 Introduction
 
-### 📝 简介
+RapidOCR is a fully open-source, free, offline-deployable OCR tool that supports multiple platforms and languages. It is designed with a strong focus on **extreme speed** and **broad compatibility**.
 
-RapidOCR 是一款完全开源免费、支持离线快速部署的多平台多语言 OCR 工具，以极致的速度与广泛的兼容性为核心优势。
+**Supported Languages:**  
+By default, it supports Chinese and English. For additional supported languages, please refer to the documentation:  
+👉 [Model List](https://rapidai.github.io/RapidOCRDocs/main/model_list/)
 
-**支持语言：** 默认支持中英文识别。其他支持的语言，参见文档：[模型列表](https://rapidai.github.io/RapidOCRDocs/main/model_list/)
+**Project Background:**  
+Given that PaddleOCR still has room for improvement in engineering and deployment, we aim to simplify and accelerate OCR model inference across various platforms.
 
-**项目缘起：** 鉴于 [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) 在工程化方面仍有优化空间，为简化并加速 OCR 模型在各类终端设备上的推理部署，我们创新性地将 PaddleOCR 中的模型转换为高度兼容的 ONNX 格式，并基于 Python, C++, Java, C# 等多种编程语言，实现了跨平台的无缝移植，让开发者能够轻松上手、高效集成。
+We convert PaddleOCR models into highly compatible **ONNX format**, and provide implementations in multiple programming languages such as **Python, C++, Java, and C#**, enabling seamless cross-platform deployment and easy integration.
 
-**名称寓意：** RapidOCR 这一名称承载着我们对产品的核心期待——轻快（操作简便、响应迅速）、好省（资源占用低、成本效益高）且智能（依托深度学习技术，实现精准高效的识别）。我们专注于发挥人工智能的优势，打造小巧而强大的模型，始终将速度作为不懈追求，同时确保卓越的识别效果。
+**Name Meaning:**  
+"RapidOCR" reflects our vision:
+- ⚡ Fast (quick response, easy to use)  
+- 💡 Efficient (low resource usage, cost-effective)  
+- 🤖 Intelligent (powered by deep learning for accurate recognition)
 
+We focus on building **lightweight yet powerful models**, always pursuing speed while ensuring excellent recognition performance.
 
+---
 
-👉👉 **本库为[RapidOCR主库](https://github.com/RapidAI/RapidOCR)的支持C#语言版本**
+👉👉 **This repository is the C# implementation of the main RapidOCR project:**  
+👉 https://github.com/RapidAI/RapidOCR
 
-.Neter们，如果您觉得本项目对您的工作或学习有所帮助，恳请您不吝赐予一颗 ⭐ Star，给予我们宝贵的支持与鼓励！
+---
 
-### 👉快速入门
-> 下面以控制台应用来演示如何快速入门
-#### 1.增加一个控制台应用
-```
+If you find this project helpful, please consider giving us a ⭐ Star. Your support means a lot!
+
+---
+
+## 👉 Quick Start
+
+The following example demonstrates how to get started using a **.NET Console Application**.
+
+### 1. Create a console project
+
+```bash
 dotnet new console -n ocrdemo
 cd ocrdemo
-```
-#### 2.添加引用
-```
+````
 
+### 2. Add package reference
+
+```bash
 dotnet add package RapidOCRLib
+```
 
-```
-#### 3.在Program.cs中添加如下代码
-```
+### 3. Add the following code to `Program.cs`
+
+```csharp
 using Emgu.CV;
 using RapidOCRLib;
 using System.Diagnostics;
 
 var path = Path.Combine(AppContext.BaseDirectory, "models");
-//Initialize model.
+
+// Initialize model
 OcrLite ocrEngin = new OcrLite()
 {
     DetPath = Path.Combine(path, "ch_PP-OCRv5_mobile_det.onnx"),
@@ -54,18 +77,28 @@ OcrLite ocrEngin = new OcrLite()
 };
 
 await ocrEngin.InitModels();
-//get the image will be ocr.
+
+// Image to OCR
 var demoWillOCRFile = Path.Combine(AppContext.BaseDirectory, "Assets", "demo.png");
-//ocr detect
+
+// OCR detect
 var result = ocrEngin.Detect(demoWillOCRFile, 50);
+
 if (result != null)
 {
     Console.WriteLine(result.ToString());
+
     var img = result.BoxImg.ToBitmap();
-    var desFile = Path.Combine(AppContext.BaseDirectory!, "Assets", Path.GetFileNameWithoutExtension(Path.GetRandomFileName()) + ".png")!;
-    #pragma warning disable CA1416
+    var desFile = Path.Combine(
+        AppContext.BaseDirectory!,
+        "Assets",
+        Path.GetFileNameWithoutExtension(Path.GetRandomFileName()) + ".png"
+    )!;
+
+#pragma warning disable CA1416
     img?.Save(desFile!);
-    #pragma warning restore CA1416
+#pragma warning restore CA1416
+
     if (File.Exists(desFile))
     {
         ProcessStartInfo psi = new ProcessStartInfo
@@ -76,68 +109,79 @@ if (result != null)
 
         Process.Start(psi);
     }
-    Console.WriteLine("显示strResult");
+
+    Console.WriteLine("Display OCR result:");
     Console.WriteLine(result.StrRes);
 }
-
 
 Console.ReadKey();
 ```
 
->注：确保模型与图片在正确的目录下！
->另：也可以直接运行源码库的 ```RapidOCRConsole```,此项目自带PP-OCRv5轻量型模型，可以直接运行;
+> ⚠️ Note:
+>
+> * Ensure that model files and images are placed in the correct directories.
+> * You can also run the `RapidOCRConsole` project directly, which includes a lightweight PP-OCRv5 model.
 
-### ⚒️ 项目结构说明
-|项目名称|目录名称|项目说明|
-|-------|-------|--------|
-|核心库|RapidOCRLib|C#的RapidOCR核心封装库,提供众多同步、异步的Detection方法|
-|console应用|RapidOCRConsole|.net OCR的Console演示，自带PP-OCRv5轻量模型，可以直接运行,引用了上面的核心库RapidOCRLib,学习者以此项目为主|
-|winform应用|RapidOCRWinform|.net OCR的winform演示，可以直接运行,但不带模型，学习者可以从RapidOCRConsole目录拷贝模型|
+---
 
+## ⚒️ Project Structure
 
-### ❓ 参数说明及调参
+| Project      | Directory       | Description                                                   |
+| ------------ | --------------- | ------------------------------------------------------------- |
+| Core Library | RapidOCRLib     | Core C# OCR wrapper library with sync/async APIs              |
+| Console App  | RapidOCRConsole | .NET console demo with built-in PP-OCRv5 model                |
+| WinForms App | RapidOCRWinform | WinForms demo (model not included; copy from console project) |
 
-OcrLite类提供了众多的同步、异步检测方法供使用，如:
-```
-## 同步版本:
+---
+
+## ❓ Parameters & Tuning
+
+`OcrLite` provides both synchronous and asynchronous methods:
+
+```csharp
+// Sync
 public OcrResult Detect(string imgFile, int padding = 50, int maxSideLen = 1024, float boxScoreThresh = 0.5f, float boxThresh = 0.3f,
                      float unClipRatio = 1.6f, bool doAngle = true, bool mostAngle = false);
-## 相应的异步版本为:
+
+// Async
 public async Task<OcrResult> DetectAsync(string imgFile, int padding = 50, int maxSideLen = 1024, float boxScoreThresh = 0.5f, float boxThresh = 0.3f,
-               float unClipRatio = 1.6f, bool doAngle = true, bool mostAngle = false)
+               float unClipRatio = 1.6f, bool doAngle = true, bool mostAngle = false);
 ```
 
-**重要：下面是参数说明及调参方法**
+### Parameter Explanation
 
-|参数名|参数含义|提高识别率的意义|调参技巧|
-|------|-------|--------------|--------|
-|padding|在输入图像的边缘填充一圈空白像素|文字经常紧贴着图片的上下左右边缘，适当加大 padding（如 10 ~ 50），给文字留出一点“呼吸空间”，能显著提升边缘文字的检测率|很多时候，文字可能贴着图片的边缘（比如证件扫描、截图的边缘文字）。卷积神经网络在处理图像边缘时，由于卷积核的特性，边缘特征容易提取不充分,这时候应该调大此参数|
-|maxSideLen|图像最长边限制|决定能不能看清|重要！！如果大图小字，此值如果设得太小，大图被严重压缩，原本就小的文字会直接糊成一团，导致漏检。|
-|boxThresh|文字区域可信度阈值|决定漏不漏检，boxThresh 是像素级的过滤，设置越低，模型更敏感，但是什么内容都输出,可能存在误检；设置越高，模型更严格，但是可能存在漏检|如果漏检，减小此值，如果检测信息太多，太杂，可以提高此值|
-|boxScoreThresh|文本框置信度阈值/文本框得分阈值|决定漏不漏检，boxScoreThresh 是对框出来的整个区域打分的过滤,属于文本框级过滤|如果漏检，减小此值，如果检测信息太多，太杂，可以提高此值|
-|unClipRatio|文本框扩张比例|检测出来的文本框向外“膨胀”的系数,决定文本框是否完整|框是框出来了，但识别出来的字“缺胳膊少腿”或“错字连篇”  • 调大 unClipRatio（文本框扩张比例）  • 大 padding（图像外边缘填充）|
-|doAngle|是否启用方向分类器|开启后，OCR 会去判断文字是正的、倒的（180度），还是侧着的（90度/270度），并自动把它转正，然后再送去识别。|如果你确定文字是正的，强烈建议关闭，能极大提高识别率|
-|mostAngle|是否支持极端的、任意角度的文字检测|此参数只有在doAngle开启的情况下生效|仅在你的图片中确实存在大量横七竖八、各种旋转角度的文字（比如杂乱的街景招牌、艺术海报）时才开启。对于常规的横排或竖排文档，不建议开启，因为这会增加误判概率|
+| Parameter      | Description                   | Impact                        | Tuning Tips                                          |
+| -------------- | ----------------------------- | ----------------------------- | ---------------------------------------------------- |
+| padding        | Adds padding around the image | Improves edge text detection  | Increase if text is near edges                       |
+| maxSideLen     | Max image side length         | Controls image clarity        | Increase for large images with small text            |
+| boxThresh      | Pixel-level threshold         | Affects detection sensitivity | Lower = more results, higher = fewer false positives |
+| boxScoreThresh | Box confidence threshold      | Filters text boxes            | Same tuning logic as above                           |
+| unClipRatio    | Box expansion ratio           | Controls text completeness    | Increase if text is cut off                          |
+| doAngle        | Enable angle classifier       | Fix rotated text              | Disable if text is always upright                    |
+| mostAngle      | Extreme angle support         | Detect rotated text           | Enable only for complex scenes                       |
 
+> If padding is applied, in an automated scenario, the padding must be subtracted to obtain the correct coordinate position.
 
-### 🎉 模型下载
+---
 
-模型下载地址： [魔塔](https://www.modelscope.cn/models/RapidAI/RapidOCR/files)
+## 🎉 Model Download
 
-注意：需要下载四个模型文件
-|模型类型|说明|
-|-------|----|
-|det模型 | 检测模型|
-|cls模型| 方向分类模型|
-|rec模型|识别模型|
-|字典文件|字典文件，重要！否则识别的结果为乱码|
+Download models from:
+[https://www.modelscope.cn/models/RapidAI/RapidOCR/files](https://www.modelscope.cn/models/RapidAI/RapidOCR/files)
 
-### 🎁 下一步开发计划
- 
-- 支持WEB端的示例;
-- 识别表格，还原表格样式;
-- 自动下载模型;
+Required files:
 
-### 🎉 联系方式
+| Model Type | Description                     |
+| ---------- | ------------------------------- |
+| det        | Detection model                 |
+| cls        | Angle classification model      |
+| rec        | Recognition model               |
+| dictionary | Character dictionary (required) |
 
-[QQ群](https://rapidai.github.io/RapidOCRDocs/main/communicate/#qq)
+---
+
+## 🎁 Roadmap
+
+* Web demo support
+* Table structure recognition
+* Automatic model download
