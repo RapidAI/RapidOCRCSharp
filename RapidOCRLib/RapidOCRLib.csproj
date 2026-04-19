@@ -22,12 +22,6 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <Compile Remove="Assets\**" />
-	  <EmbeddedResource Remove="Assets\**" />
-	  <None Remove="Assets\**" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<PackageReference Include="Clipper2" Version="2.0.0" />
 		<PackageReference Include="Emgu.CV" Version="4.12.0.5764" />
 		<PackageReference Include="Emgu.CV.Bitmap" Version="4.12.0.5764" />
@@ -38,6 +32,7 @@
 
 	<ItemGroup>
 		<None Include="..\README.md" Pack="true" PackagePath="\" />
+		<None Include="..\Assets\icon.png" Pack="true" PackagePath="\"/>
 	</ItemGroup>
 
 </Project>
