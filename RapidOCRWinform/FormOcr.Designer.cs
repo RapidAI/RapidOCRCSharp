@@ -34,9 +34,6 @@ partial class FormOcr
         modelGroupBox = new GroupBox();
         modelStatusLabel = new Label();
         initializeModelButton = new Button();
-        browseModelButton = new Button();
-        modelPathTextBox = new TextBox();
-        modelPathLabel = new Label();
         settingsGroupBox = new GroupBox();
         layoutHintLabel = new Label();
         role4ColumnNumeric = new NumericUpDown();
@@ -208,7 +205,7 @@ partial class FormOcr
         processButton.FlatStyle = FlatStyle.Flat;
         processButton.Font = new Font("Microsoft YaHei UI", 11F, FontStyle.Bold);
         processButton.ForeColor = Color.White;
-        processButton.Location = new Point(15, 683);
+        processButton.Location = new Point(15, 610);
         processButton.Name = "processButton";
         processButton.Size = new Size(348, 48);
         processButton.TabIndex = 3;
@@ -221,62 +218,32 @@ partial class FormOcr
         modelGroupBox.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         modelGroupBox.Controls.Add(modelStatusLabel);
         modelGroupBox.Controls.Add(initializeModelButton);
-        modelGroupBox.Controls.Add(browseModelButton);
-        modelGroupBox.Controls.Add(modelPathTextBox);
-        modelGroupBox.Controls.Add(modelPathLabel);
         modelGroupBox.Location = new Point(15, 512);
         modelGroupBox.Name = "modelGroupBox";
-        modelGroupBox.Size = new Size(348, 157);
+        modelGroupBox.Size = new Size(348, 84);
         modelGroupBox.TabIndex = 2;
         modelGroupBox.TabStop = false;
-        modelGroupBox.Text = "OCR 模型";
+        modelGroupBox.Text = "内置 OCR 模型";
         // 
         // modelStatusLabel
         // 
         modelStatusLabel.AutoEllipsis = true;
         modelStatusLabel.ForeColor = Color.DimGray;
-        modelStatusLabel.Location = new Point(12, 122);
+        modelStatusLabel.Location = new Point(12, 34);
         modelStatusLabel.Name = "modelStatusLabel";
-        modelStatusLabel.Size = new Size(324, 25);
-        modelStatusLabel.TabIndex = 4;
-        modelStatusLabel.Text = "等待初始化";
+        modelStatusLabel.Size = new Size(208, 25);
+        modelStatusLabel.TabIndex = 0;
+        modelStatusLabel.Text = "正在准备内置模型…";
         // 
         // initializeModelButton
         // 
-        initializeModelButton.Location = new Point(228, 81);
+        initializeModelButton.Location = new Point(228, 27);
         initializeModelButton.Name = "initializeModelButton";
         initializeModelButton.Size = new Size(108, 34);
-        initializeModelButton.TabIndex = 3;
+        initializeModelButton.TabIndex = 1;
         initializeModelButton.Text = "重新初始化";
         initializeModelButton.UseVisualStyleBackColor = true;
         initializeModelButton.Click += initializeModelButton_Click;
-        // 
-        // browseModelButton
-        // 
-        browseModelButton.Location = new Point(228, 41);
-        browseModelButton.Name = "browseModelButton";
-        browseModelButton.Size = new Size(108, 34);
-        browseModelButton.TabIndex = 2;
-        browseModelButton.Text = "选择目录";
-        browseModelButton.UseVisualStyleBackColor = true;
-        browseModelButton.Click += browseModelButton_Click;
-        // 
-        // modelPathTextBox
-        // 
-        modelPathTextBox.Location = new Point(12, 44);
-        modelPathTextBox.Name = "modelPathTextBox";
-        modelPathTextBox.Size = new Size(208, 27);
-        modelPathTextBox.TabIndex = 1;
-        modelPathTextBox.TextChanged += modelPathTextBox_TextChanged;
-        // 
-        // modelPathLabel
-        // 
-        modelPathLabel.AutoSize = true;
-        modelPathLabel.Location = new Point(12, 23);
-        modelPathLabel.Name = "modelPathLabel";
-        modelPathLabel.Size = new Size(69, 20);
-        modelPathLabel.TabIndex = 0;
-        modelPathLabel.Text = "模型目录";
         // 
         // settingsGroupBox
         // 
@@ -740,9 +707,6 @@ partial class FormOcr
     private Label role4ColumnLabel;
     private Label layoutHintLabel;
     private GroupBox modelGroupBox;
-    private TextBox modelPathTextBox;
-    private Label modelPathLabel;
-    private Button browseModelButton;
     private Button initializeModelButton;
     private Label modelStatusLabel;
     private Button processButton;

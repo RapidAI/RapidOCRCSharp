@@ -35,7 +35,6 @@ public partial class FormOcr : Form
     private ScheduleExtractionResult? _lastExtraction;
     private ScheduleBuildResult? _lastBuild;
     private string _batchDiagnostics = string.Empty;
-    private string? _initializedModelDirectory;
     private DateTime _appliedMonth;
     private int _appliedRole3Column = -2;
     private int _appliedRole4Column = -1;
@@ -59,21 +58,6 @@ public partial class FormOcr : Form
         monthPicker.Value = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
         role3ColumnNumeric.Value = NormalizeColumnSetting(_settings.Role3Column, -2);
         role4ColumnNumeric.Value = NormalizeColumnSetting(_settings.Role4Column, -1);
-        try
-        {
-            modelPathTextBox.Text = EmbeddedModelProvider.EnsureExtracted();
-        }
-        catch (Exception exception)
-        {
-            modelPathTextBox.Text = FindDefaultModelDirectory(_settings.ModelDirectory);
-            MessageBox.Show(
-                this,
-                $"无法释放程序内置的 OCR 模型：\n{exception.Message}\n\n将尝试使用本机已有模型。",
-                "内置模型不可用",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Error);
-        }
-
         RememberAppliedSettings();
         _loaded = true;
         UpdateActionState();
@@ -83,47 +67,6 @@ public partial class FormOcr : Form
     private async void initializeModelButton_Click(object? sender, EventArgs e) =>
         await InitializeOcrAsync(showSuccess: true);
 
-    private void browseModelButton_Click(object? sender, EventArgs e)
-    {
-        using FolderBrowserDialog dialog = new()
-        {
-            Description = "选择包含 3 个 ONNX 模型和 ppocrv5_dict.txt 的目录",
-            SelectedPath = Directory.Exists(modelPathTextBox.Text)
-                ? modelPathTextBox.Text
-                : AppContext.BaseDirectory,
-            ShowNewFolderButton = false,
-        };
-
-        if (dialog.ShowDialog(this) == DialogResult.OK)
-        {
-            modelPathTextBox.Text = dialog.SelectedPath;
-            _settings.ModelDirectory = dialog.SelectedPath;
-            _settings.Save();
-        }
-    }
-
-    private void modelPathTextBox_TextChanged(object? sender, EventArgs e)
-    {
-        if (!_loaded || _busy || _initializedModelDirectory is null)
-        {
-            return;
-        }
-
-        string currentPath;
-        try
-        {
-            currentPath = Path.GetFullPath(modelPathTextBox.Text.Trim());
-        }
-        catch
-        {
-            currentPath = string.Empty;
-        }
-
-        bool stillInitialized = _ocrEngine is not null &&
-                                string.Equals(currentPath, _initializedModelDirectory, StringComparison.OrdinalIgnoreCase);
-        SetModelState(stillInitialized, stillInitialized ? "模型已就绪" : "目录已更改，请重新初始化");
-    }
-
     private async Task InitializeOcrAsync(bool showSuccess)
     {
         if (_busy)
@@ -131,26 +74,11 @@ public partial class FormOcr : Form
             return;
         }
 
-        string modelDirectory = modelPathTextBox.Text.Trim();
-        string[] missingFiles = ModelFileNames
-            .Where(name => !File.Exists(Path.Combine(modelDirectory, name)))
-            .ToArray();
-        if (missingFiles.Length > 0)
-        {
-            SetModelState(false, $"缺少 {missingFiles.Length} 个模型文件");
-            MessageBox.Show(
-                this,
-                $"模型目录不完整：\n{modelDirectory}\n\n缺少：\n{string.Join("\n", missingFiles)}",
-                "OCR 模型未就绪",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
-            return;
-        }
-
         try
         {
-            SetBusy(true, "正在初始化 OCR 模型…");
-            SetModelState(false, "正在初始化…");
+            SetBusy(true, "正在准备内置 OCR 模型…");
+            SetModelState(false, "正在准备内置模型…");
+            string modelDirectory = await Task.Run(EmbeddedModelProvider.EnsureExtracted);
             OcrLite engine = new();
             int threadCount = Math.Max(1, (int)Math.Ceiling(Environment.ProcessorCount * 0.7));
             try
@@ -173,14 +101,11 @@ public partial class FormOcr : Form
             _ocrEngine = engine;
             previousEngine?.Dispose();
             _ocrReady = true;
-            _initializedModelDirectory = Path.GetFullPath(modelDirectory);
-            _settings.ModelDirectory = modelDirectory;
-            _settings.Save();
-            SetModelState(true, $"模型已就绪 · {threadCount} 线程");
-            SetStatus("OCR 模型初始化完成");
+            SetModelState(true, $"内置模型已就绪 · {threadCount} 线程");
+            SetStatus("内置 OCR 模型初始化完成");
             if (showSuccess)
             {
-                MessageBox.Show(this, "OCR 模型初始化成功。", "模型就绪", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, "内置 OCR 模型初始化成功。", "模型就绪", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
         catch (Exception exception)
@@ -188,11 +113,10 @@ public partial class FormOcr : Form
             _ocrEngine?.Dispose();
             _ocrEngine = null;
             _ocrReady = false;
-            _initializedModelDirectory = null;
-            SetModelState(false, "模型初始化失败");
+            SetModelState(false, "内置模型初始化失败，可重试");
             MessageBox.Show(
                 this,
-                $"OCR 模型初始化失败：\n{exception.Message}",
+                $"无法准备程序内置的 OCR 模型：\n{exception.Message}\n\n请检查磁盘空间和用户目录权限后重试。",
                 "初始化失败",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
@@ -282,7 +206,7 @@ public partial class FormOcr : Form
 
         if (!_ocrReady || _ocrEngine is null)
         {
-            MessageBox.Show(this, "OCR 模型尚未初始化，请检查模型目录。", "无法开始", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, "内置 OCR 模型尚未就绪，请重试初始化。", "无法开始", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -352,7 +276,7 @@ public partial class FormOcr : Form
                 "处理失败",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
-            SetStatus("处理失败，请检查原图和模型设置");
+            SetStatus("处理失败，请检查原图和 OCR 状态");
         }
         finally
         {
@@ -968,8 +892,6 @@ public partial class FormOcr : Form
         selectImagesButton.Enabled = !busy;
         clearImagesButton.Enabled = !busy && _images.Count > 0;
         initializeModelButton.Enabled = !busy;
-        browseModelButton.Enabled = !busy;
-        modelPathTextBox.Enabled = !busy;
         monthPicker.Enabled = !busy;
         role3ColumnNumeric.Enabled = !busy;
         role4ColumnNumeric.Enabled = !busy;
@@ -1015,27 +937,6 @@ public partial class FormOcr : Form
         nameof(ScheduleRow.Role4) => nameof(EditableScheduleRow.Role4),
         _ => null,
     };
-
-    private static string FindDefaultModelDirectory(string? configuredDirectory)
-    {
-        List<string> candidates = [];
-        if (!string.IsNullOrWhiteSpace(configuredDirectory))
-        {
-            candidates.Add(configuredDirectory);
-        }
-
-        DirectoryInfo? current = new(AppContext.BaseDirectory);
-        for (int level = 0; level < 7 && current is not null; level++, current = current.Parent)
-        {
-            candidates.Add(Path.Combine(current.FullName, "models"));
-            candidates.Add(Path.Combine(current.FullName, "RapidOCRConsole", "models"));
-        }
-
-        return candidates.FirstOrDefault(IsCompleteModelDirectory) ?? Path.Combine(AppContext.BaseDirectory, "models");
-    }
-
-    private static bool IsCompleteModelDirectory(string path) =>
-        Directory.Exists(path) && ModelFileNames.All(name => File.Exists(Path.Combine(path, name)));
 
     private static Size ReadImageSize(string path)
     {

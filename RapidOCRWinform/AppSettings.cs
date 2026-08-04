@@ -4,8 +4,6 @@ namespace RapidOCRWinform;
 
 internal sealed class AppSettings
 {
-    public string? ModelDirectory { get; set; }
-
     public int Role3Column { get; set; } = -2;
 
     public int Role4Column { get; set; } = -1;

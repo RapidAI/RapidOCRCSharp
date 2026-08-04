@@ -41,7 +41,7 @@ RapidOCR 是一款完全开源免费、支持离线快速部署的多平台多�
 dotnet run --project .\RapidOCRWinform\RapidOCRWinform.csproj
 ```
 
-三个 ONNX 模型和 `ppocrv5_dict.txt` 已编译进 WinForms 程序；首次启动会校验并释放到用户模型缓存，不需要在程序旁放置 `models` 目录。也可以在界面中临时选择其他完整模型目录。核心日期/几何规则与 Excel OOXML 导出测试可用以下命令运行：
+三个 ONNX 模型和 `ppocrv5_dict.txt` 已编译进 WinForms 程序；首次启动会校验并释放到用户模型缓存并自动初始化，不需要选择模型目录，也不需要在程序旁放置 `models` 目录。核心日期/几何规则与 Excel OOXML 导出测试可用以下命令运行：
 
 ```powershell
 dotnet test .\RapidOCRSchedule.Tests\RapidOCRSchedule.Tests.csproj
