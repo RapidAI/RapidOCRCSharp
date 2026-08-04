@@ -78,18 +78,35 @@ public sealed class CoreScheduleTests
     }
 
     [Fact]
-    public void Build_IncludesWeekendCandidatesInOutput()
+    public void Build_WhenWeekendIgnoringIsDisabled_IncludesWeekendCandidatesInOutput()
     {
         ScheduleBuildResult result = new ScheduleService().Build(
             TargetYear,
             TargetMonth,
-            CreateFourDaySeries());
+            CreateFourDaySeries(),
+            ignoreWeekends: false);
 
         Assert.Contains(
             result.Rows,
             static row => row.Date!.Value.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday);
         Assert.Equal(31, result.Rows.Count);
         Assert.Empty(result.WeekendCandidates);
+    }
+
+    [Fact]
+    public void Build_WhenWeekendIgnoringIsEnabled_ExcludesWeekendRowsAndCapturesCandidates()
+    {
+        ScheduleBuildResult result = new ScheduleService().Build(
+            TargetYear,
+            TargetMonth,
+            CreateFourDaySeries(),
+            ignoreWeekends: true);
+
+        Assert.DoesNotContain(
+            result.Rows,
+            static row => row.Date!.Value.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday);
+        Assert.Equal(21, result.Rows.Count);
+        Assert.Equal(10, result.WeekendCandidates.Count);
     }
 
     [Fact]

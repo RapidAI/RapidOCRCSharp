@@ -10,7 +10,8 @@ public sealed class ScheduleService
         int targetYear,
         int targetMonth,
         IEnumerable<ScheduleCandidate> candidates,
-        bool alignOcrRowsToCalendar = false)
+        bool alignOcrRowsToCalendar = false,
+        bool ignoreWeekends = false)
     {
         if (targetYear is < 1900 or > 9999)
         {
@@ -89,6 +90,17 @@ public sealed class ScheduleService
         List<LocatedCandidate> targetMonthCandidates = located
             .Where(item => item.Date.Month == targetMonth)
             .ToList();
+        if (ignoreWeekends)
+        {
+            result.WeekendCandidates.AddRange(
+                targetMonthCandidates
+                    .Where(static item => IsWeekend(item.Date))
+                    .Select(static item => item.Candidate));
+            targetMonthCandidates = targetMonthCandidates
+                .Where(static item => !IsWeekend(item.Date))
+                .ToList();
+        }
+
         Dictionary<DateOnly, List<LocatedCandidate>> byDate = targetMonthCandidates
             .GroupBy(static item => item.Date)
             .ToDictionary(static group => group.Key, static group => group.ToList());
@@ -97,6 +109,11 @@ public sealed class ScheduleService
         DateOnly last = new(targetYear, targetMonth, DateTime.DaysInMonth(targetYear, targetMonth));
         for (DateOnly date = first; date <= last; date = date.AddDays(1))
         {
+            if (ignoreWeekends && IsWeekend(date))
+            {
+                continue;
+            }
+
             if (!byDate.TryGetValue(date, out List<LocatedCandidate>? matches) || matches.Count == 0)
             {
                 ScheduleRow missing = new()
@@ -143,10 +160,15 @@ public sealed class ScheduleService
     public ScheduleBuildResult Revalidate(
         int targetYear,
         int targetMonth,
-        IEnumerable<ScheduleRow> editedRows)
+        IEnumerable<ScheduleRow> editedRows,
+        bool ignoreWeekends = false)
     {
         ArgumentNullException.ThrowIfNull(editedRows);
-        return Build(targetYear, targetMonth, CreateCandidatesFromRows(editedRows));
+        return Build(
+            targetYear,
+            targetMonth,
+            CreateCandidatesFromRows(editedRows),
+            ignoreWeekends: ignoreWeekends);
     }
 
     /// <summary>
@@ -154,7 +176,11 @@ public sealed class ScheduleService
     /// UI callers with edited rows should use the enumerable overload and include their editable
     /// unlocated rows, as the WinForms application does.
     /// </summary>
-    public ScheduleBuildResult Revalidate(int targetYear, int targetMonth, ScheduleBuildResult previous)
+    public ScheduleBuildResult Revalidate(
+        int targetYear,
+        int targetMonth,
+        ScheduleBuildResult previous,
+        bool ignoreWeekends = false)
     {
         ArgumentNullException.ThrowIfNull(previous);
         List<ScheduleCandidate> candidates = CreateCandidatesFromRows(
@@ -162,8 +188,12 @@ public sealed class ScheduleService
                 row.Issues.All(static issue => issue.Code != ScheduleIssueCode.DuplicateDate)));
         candidates.AddRange(previous.UnlocatedCandidates);
         candidates.AddRange(previous.DuplicateCandidates);
-        return Build(targetYear, targetMonth, candidates);
+        candidates.AddRange(previous.WeekendCandidates);
+        return Build(targetYear, targetMonth, candidates, ignoreWeekends: ignoreWeekends);
     }
+
+    private static bool IsWeekend(DateOnly date) =>
+        date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
 
     private static List<ScheduleCandidate> CreateCandidatesFromRows(IEnumerable<ScheduleRow> editedRows)
     {
