@@ -59,6 +59,7 @@ public partial class FormOcr : Form
         monthPicker.Value = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
         role3ColumnNumeric.Value = NormalizeColumnSetting(_settings.Role3Column, -2);
         role4ColumnNumeric.Value = NormalizeColumnSetting(_settings.Role4Column, -1);
+        ignoreWeekendsCheckBox.Checked = _settings.IgnoreWeekends;
         convertTraditionalToSimplifiedCheckBox.Checked = _settings.ConvertTraditionalToSimplified;
         _settings.EmployeeNames = EmployeeNameResolver
             .NormalizeEmployeeNames(
@@ -302,7 +303,8 @@ public partial class FormOcr : Form
             monthPicker.Value.Year,
             monthPicker.Value.Month,
             _lastExtraction.Candidates,
-            alignOcrRowsToCalendar: true);
+            alignOcrRowsToCalendar: true,
+            ignoreWeekends: _settings.IgnoreWeekends);
         CaptureDuplicateCandidates(_lastBuild, replace: true);
         BindBuildResult(_lastBuild);
         RememberAppliedSettings();
@@ -458,6 +460,75 @@ public partial class FormOcr : Form
             string suffix = _hasManualEdits ? "；为保留手工修改，将在下次识别时生效" : string.Empty;
             SetStatus($"自动繁转简{stateText}{suffix}");
         }
+    }
+
+    private void ignoreWeekendsCheckBox_CheckedChanged(object? sender, EventArgs e)
+    {
+        if (!_loaded || _suppressSettingEvents)
+        {
+            return;
+        }
+
+        bool previousValue = _settings.IgnoreWeekends;
+        if (_busy || (_lastExtraction is not null && !ConfirmDiscardManualEdits("更改周末忽略设置")))
+        {
+            SetIgnoreWeekendsCheckBox(previousValue);
+            return;
+        }
+
+        _settings.IgnoreWeekends = ignoreWeekendsCheckBox.Checked;
+        if (!_settings.TrySave(out string? errorMessage))
+        {
+            _settings.IgnoreWeekends = previousValue;
+            SetIgnoreWeekendsCheckBox(previousValue);
+            MessageBox.Show(
+                this,
+                $"该选项无法保存，原配置未更改：\n{errorMessage}",
+                "保存失败",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+            return;
+        }
+
+        if (_lastExtraction is null)
+        {
+            SetStatus(_settings.IgnoreWeekends ? "已忽略周六和周日" : "已保留周六和周日");
+            return;
+        }
+
+        try
+        {
+            _lastBuild = _scheduleService.Build(
+                monthPicker.Value.Year,
+                monthPicker.Value.Month,
+                _lastExtraction.Candidates,
+                alignOcrRowsToCalendar: true,
+                ignoreWeekends: _settings.IgnoreWeekends);
+            CaptureDuplicateCandidates(_lastBuild, replace: true);
+            BindBuildResult(_lastBuild);
+            _batchDiagnostics = FormatBatchDiagnostics(_lastExtraction, _lastBuild);
+            UpdateDiagnosticsForSelection();
+            SetStatus(_settings.IgnoreWeekends ? "已忽略周六和周日" : "已保留周六和周日");
+        }
+        catch (Exception exception)
+        {
+            _settings.IgnoreWeekends = previousValue;
+            _settings.Save();
+            SetIgnoreWeekendsCheckBox(previousValue);
+            MessageBox.Show(
+                this,
+                $"无法按新的周末设置重新整理：\n{exception.Message}",
+                "重新整理失败",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+    }
+
+    private void SetIgnoreWeekendsCheckBox(bool value)
+    {
+        _suppressSettingEvents = true;
+        ignoreWeekendsCheckBox.Checked = value;
+        _suppressSettingEvents = false;
     }
 
     private TableLayoutProfile CreateLayoutProfile() => new()
@@ -620,7 +691,11 @@ public partial class FormOcr : Form
             coreRow.Issues.AddRange(row.PersistentIssues);
             edited.Add(coreRow);
         }
-        _lastBuild = _scheduleService.Revalidate(monthPicker.Value.Year, monthPicker.Value.Month, edited);
+        _lastBuild = _scheduleService.Revalidate(
+            monthPicker.Value.Year,
+            monthPicker.Value.Month,
+            edited,
+            ignoreWeekends: _settings.IgnoreWeekends);
         CaptureDuplicateCandidates(_lastBuild, replace: false);
         BindBuildResult(_lastBuild);
         if (_lastExtraction is not null)
@@ -796,7 +871,8 @@ public partial class FormOcr : Form
                 monthPicker.Value.Year,
                 monthPicker.Value.Month,
                 _lastExtraction.Candidates,
-                alignOcrRowsToCalendar: true);
+                alignOcrRowsToCalendar: true,
+                ignoreWeekends: _settings.IgnoreWeekends);
             CaptureDuplicateCandidates(_lastBuild, replace: true);
             BindBuildResult(_lastBuild);
             _appliedMonth = FirstDayOfMonth(monthPicker.Value);
@@ -1069,6 +1145,7 @@ public partial class FormOcr : Form
         monthPicker.Enabled = !busy;
         role3ColumnNumeric.Enabled = !busy;
         role4ColumnNumeric.Enabled = !busy;
+        ignoreWeekendsCheckBox.Enabled = !busy;
         convertTraditionalToSimplifiedCheckBox.Enabled = !busy;
         employeeRosterButton.Enabled = !busy;
         scheduleGrid.ReadOnly = busy;

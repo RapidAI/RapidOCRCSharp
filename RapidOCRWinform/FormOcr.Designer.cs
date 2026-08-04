@@ -35,6 +35,7 @@ partial class FormOcr
         modelStatusLabel = new Label();
         initializeModelButton = new Button();
         settingsGroupBox = new GroupBox();
+        ignoreWeekendsCheckBox = new CheckBox();
         convertTraditionalToSimplifiedCheckBox = new CheckBox();
         employeeRosterStatusLabel = new Label();
         employeeRosterButton = new Button();
@@ -251,6 +252,7 @@ partial class FormOcr
         // settingsGroupBox
         // 
         settingsGroupBox.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        settingsGroupBox.Controls.Add(ignoreWeekendsCheckBox);
         settingsGroupBox.Controls.Add(convertTraditionalToSimplifiedCheckBox);
         settingsGroupBox.Controls.Add(employeeRosterStatusLabel);
         settingsGroupBox.Controls.Add(employeeRosterButton);
@@ -261,22 +263,35 @@ partial class FormOcr
         settingsGroupBox.Controls.Add(role3ColumnLabel);
         settingsGroupBox.Controls.Add(monthPicker);
         settingsGroupBox.Controls.Add(targetMonthLabel);
-        settingsGroupBox.Location = new Point(15, 324);
+        settingsGroupBox.Location = new Point(15, 294);
         settingsGroupBox.Name = "settingsGroupBox";
-        settingsGroupBox.Size = new Size(348, 263);
+        settingsGroupBox.Size = new Size(348, 293);
         settingsGroupBox.TabIndex = 1;
         settingsGroupBox.TabStop = false;
         settingsGroupBox.Text = "整理设置";
+        //
+        // ignoreWeekendsCheckBox
+        //
+        ignoreWeekendsCheckBox.AutoSize = true;
+        ignoreWeekendsCheckBox.Checked = true;
+        ignoreWeekendsCheckBox.CheckState = CheckState.Checked;
+        ignoreWeekendsCheckBox.Location = new Point(14, 181);
+        ignoreWeekendsCheckBox.Name = "ignoreWeekendsCheckBox";
+        ignoreWeekendsCheckBox.Size = new Size(166, 24);
+        ignoreWeekendsCheckBox.TabIndex = 7;
+        ignoreWeekendsCheckBox.Text = "忽略周六和周日";
+        ignoreWeekendsCheckBox.UseVisualStyleBackColor = true;
+        ignoreWeekendsCheckBox.CheckedChanged += ignoreWeekendsCheckBox_CheckedChanged;
         //
         // convertTraditionalToSimplifiedCheckBox
         //
         convertTraditionalToSimplifiedCheckBox.AutoSize = true;
         convertTraditionalToSimplifiedCheckBox.Checked = true;
         convertTraditionalToSimplifiedCheckBox.CheckState = CheckState.Checked;
-        convertTraditionalToSimplifiedCheckBox.Location = new Point(14, 181);
+        convertTraditionalToSimplifiedCheckBox.Location = new Point(14, 211);
         convertTraditionalToSimplifiedCheckBox.Name = "convertTraditionalToSimplifiedCheckBox";
         convertTraditionalToSimplifiedCheckBox.Size = new Size(211, 24);
-        convertTraditionalToSimplifiedCheckBox.TabIndex = 7;
+        convertTraditionalToSimplifiedCheckBox.TabIndex = 8;
         convertTraditionalToSimplifiedCheckBox.Text = "自动将繁体转换为简体";
         convertTraditionalToSimplifiedCheckBox.UseVisualStyleBackColor = true;
         convertTraditionalToSimplifiedCheckBox.CheckedChanged += convertTraditionalToSimplifiedCheckBox_CheckedChanged;
@@ -285,19 +300,19 @@ partial class FormOcr
         //
         employeeRosterStatusLabel.AutoEllipsis = true;
         employeeRosterStatusLabel.ForeColor = Color.DimGray;
-        employeeRosterStatusLabel.Location = new Point(14, 222);
+        employeeRosterStatusLabel.Location = new Point(14, 252);
         employeeRosterStatusLabel.Name = "employeeRosterStatusLabel";
         employeeRosterStatusLabel.Size = new Size(205, 25);
-        employeeRosterStatusLabel.TabIndex = 8;
+        employeeRosterStatusLabel.TabIndex = 9;
         employeeRosterStatusLabel.Text = "员工名单：尚未配置";
         employeeRosterStatusLabel.TextAlign = ContentAlignment.MiddleLeft;
         //
         // employeeRosterButton
         //
-        employeeRosterButton.Location = new Point(228, 215);
+        employeeRosterButton.Location = new Point(228, 245);
         employeeRosterButton.Name = "employeeRosterButton";
         employeeRosterButton.Size = new Size(104, 34);
-        employeeRosterButton.TabIndex = 9;
+        employeeRosterButton.TabIndex = 10;
         employeeRosterButton.Text = "配置名单…";
         employeeRosterButton.UseVisualStyleBackColor = true;
         employeeRosterButton.Click += employeeRosterButton_Click;
@@ -379,14 +394,14 @@ partial class FormOcr
         imagesGroupBox.Controls.Add(imageListView);
         imagesGroupBox.Location = new Point(15, 12);
         imagesGroupBox.Name = "imagesGroupBox";
-        imagesGroupBox.Size = new Size(348, 298);
+        imagesGroupBox.Size = new Size(348, 268);
         imagesGroupBox.TabIndex = 0;
         imagesGroupBox.TabStop = false;
         imagesGroupBox.Text = "排班图片（必须正好 4 张）";
         // 
         // clearImagesButton
         // 
-        clearImagesButton.Location = new Point(228, 250);
+        clearImagesButton.Location = new Point(228, 220);
         clearImagesButton.Name = "clearImagesButton";
         clearImagesButton.Size = new Size(108, 34);
         clearImagesButton.TabIndex = 2;
@@ -396,7 +411,7 @@ partial class FormOcr
         // 
         // selectImagesButton
         // 
-        selectImagesButton.Location = new Point(12, 250);
+        selectImagesButton.Location = new Point(12, 220);
         selectImagesButton.Name = "selectImagesButton";
         selectImagesButton.Size = new Size(208, 34);
         selectImagesButton.TabIndex = 1;
@@ -414,7 +429,7 @@ partial class FormOcr
         imageListView.MultiSelect = false;
         imageListView.Name = "imageListView";
         imageListView.ShowItemToolTips = true;
-        imageListView.Size = new Size(324, 211);
+        imageListView.Size = new Size(324, 181);
         imageListView.TabIndex = 0;
         imageListView.UseCompatibleStateImageBehavior = false;
         imageListView.View = View.Details;
@@ -746,6 +761,7 @@ partial class FormOcr
     private NumericUpDown role4ColumnNumeric;
     private Label role4ColumnLabel;
     private Label layoutHintLabel;
+    private CheckBox ignoreWeekendsCheckBox;
     private CheckBox convertTraditionalToSimplifiedCheckBox;
     private Button employeeRosterButton;
     private Label employeeRosterStatusLabel;

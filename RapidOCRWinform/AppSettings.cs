@@ -10,6 +10,8 @@ internal sealed class AppSettings
 
     public bool ConvertTraditionalToSimplified { get; set; } = true;
 
+    public bool IgnoreWeekends { get; set; } = true;
+
     public List<string> EmployeeNames { get; set; } = [];
 
     public static AppSettings Load()

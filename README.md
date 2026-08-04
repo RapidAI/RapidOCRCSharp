@@ -43,7 +43,7 @@ If you find this project helpful, please consider giving us a ⭐ Star. Your sup
 
 ## Local schedule-image organizer
 
-`RapidOCRWinform` now includes a complete four-image schedule workflow. Select exactly four structurally identical schedule images, choose the target year/month, run OCR, review the merged weekday-only table, edit any date or name, and export the six required columns to `.xlsx`.
+`RapidOCRWinform` now includes a complete four-image schedule workflow. Select exactly four structurally identical schedule images, choose the target year/month, run OCR, review the merged table, edit any date or name, and export the six required columns to `.xlsx`. Saturdays and Sundays are ignored by default; the checkbox can retain them, and that preference persists in `config/settings.json` beside the application.
 
 Records are merged by calendar date rather than upload order. Missing workdays, duplicate dates, invalid dates/weekdays, weekday mismatches, empty positions, multiple months, ambiguous columns, and low-confidence OCR are shown explicitly for manual review. The default layout uses columns 1–4 plus the final two columns; the two right-side column indices can be changed without rerunning OCR.
 
