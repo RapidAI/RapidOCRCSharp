@@ -100,6 +100,11 @@ public sealed class ScheduleExtractor
 
         foreach (RowCluster row in rows)
         {
+            if (IsSpreadsheetColumnHeaderRow(row))
+            {
+                continue;
+            }
+
             float assignmentTolerance = GetAssignmentTolerance(columns, columnTolerance);
             Dictionary<int, List<OcrToken>> cells = AssignCells(row, columns, assignmentTolerance, out List<OcrToken> rejectedTokens);
             result.UnassignedTokens.AddRange(rejectedTokens);
@@ -234,9 +239,20 @@ public sealed class ScheduleExtractor
             foreach (RowCluster row in ClusterRows(sourceTokens, rowTolerance))
             {
                 fallbackRows.Add((row, globalRowIndex));
-                if (IsLikelyTableRow(row))
+                OcrToken[] orderedTokens = row.Tokens
+                    .OrderBy(static token => token.Bounds.CenterX)
+                    .ToArray();
+                if (TryFindDateTokenSpan(orderedTokens, out int dateStartIndex, out _))
                 {
-                    positioned.AddRange(row.Tokens.Select(token => new PositionedToken(token, globalRowIndex)));
+                    positioned.AddRange(orderedTokens
+                        .Skip(dateStartIndex)
+                        .Select(token => new PositionedToken(token, globalRowIndex)));
+                }
+                else if (TryFindSemanticHeaderStart(orderedTokens, out int headerStartIndex))
+                {
+                    positioned.AddRange(orderedTokens
+                        .Skip(headerStartIndex)
+                        .Select(token => new PositionedToken(token, globalRowIndex)));
                 }
 
                 globalRowIndex++;
@@ -332,33 +348,79 @@ public sealed class ScheduleExtractor
         return edgeGap >= typicalGap * minimumFactor && edgeGap <= typicalGap * maximumFactor;
     }
 
-    private static bool IsLikelyTableRow(RowCluster row)
+    private static bool TryFindSemanticHeaderStart(
+        IReadOnlyList<OcrToken> orderedTokens,
+        out int startIndex)
     {
-        if (RowContainsDate(row))
+        startIndex = -1;
+        for (int index = 0; index < orderedTokens.Count; index++)
         {
-            return true;
+            if (orderedTokens[index].Text.Contains("日期", StringComparison.Ordinal))
+            {
+                startIndex = index;
+                break;
+            }
         }
 
-        string combined = string.Concat(
-            row.Tokens.OrderBy(static token => token.Bounds.CenterX).Select(static token => token.Text));
-        return combined.Contains("日期", StringComparison.Ordinal) &&
-               (combined.Contains("星期", StringComparison.Ordinal) || combined.Contains("周", StringComparison.Ordinal));
+        if (startIndex < 0)
+        {
+            return false;
+        }
+
+        string combined = string.Concat(orderedTokens.Skip(startIndex).Select(static token => token.Text));
+        return combined.Contains("星期", StringComparison.Ordinal) ||
+               combined.Contains("周", StringComparison.Ordinal);
     }
 
     private static bool RowContainsDate(RowCluster row)
     {
         OcrToken[] ordered = row.Tokens.OrderBy(static token => token.Bounds.CenterX).ToArray();
-        for (int count = 1; count <= Math.Min(3, ordered.Length); count++)
+        return TryFindDateTokenSpan(ordered, out _, out _);
+    }
+
+    private static bool TryFindDateTokenSpan(
+        IReadOnlyList<OcrToken> orderedTokens,
+        out int startIndex,
+        out int tokenCount)
+    {
+        startIndex = -1;
+        tokenCount = 0;
+        for (int start = 0; start < orderedTokens.Count; start++)
         {
-            string candidate = string.Concat(ordered.Take(count).Select(static token => token.Text));
-            if (DateTextParser.TryParseMonthDay(candidate, out _, out _))
+            for (int count = 1; count <= Math.Min(3, orderedTokens.Count - start); count++)
             {
-                return true;
+                string candidate = string.Concat(
+                    orderedTokens.Skip(start).Take(count).Select(static token => token.Text));
+                if (DateTextParser.TryParseMonthDay(candidate, out _, out _))
+                {
+                    startIndex = start;
+                    tokenCount = count;
+                    return true;
+                }
             }
         }
 
         return false;
     }
+
+    private static bool IsSpreadsheetColumnHeaderRow(RowCluster row)
+    {
+        string[] texts = row.Tokens
+            .Select(static token => token.Text.Trim())
+            .Where(static text => text.Length > 0)
+            .ToArray();
+        if (texts.Length < 4)
+        {
+            return false;
+        }
+
+        int labelCount = texts.Count(IsSpreadsheetColumnLabel);
+        return labelCount >= 4 && labelCount >= (int)Math.Ceiling(texts.Length * 0.70D);
+    }
+
+    private static bool IsSpreadsheetColumnLabel(string text) =>
+        text.Length is >= 1 and <= 3 &&
+        text.All(static character => character is >= 'A' and <= 'Z' or >= 'a' and <= 'z');
 
     private static Dictionary<int, List<OcrToken>> AssignCells(
         RowCluster row,

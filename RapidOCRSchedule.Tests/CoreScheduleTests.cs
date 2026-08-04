@@ -418,6 +418,37 @@ public sealed class CoreScheduleTests
         Assert.DoesNotContain(first.Issues, static issue => issue.Code == ScheduleIssueCode.InvalidDate);
     }
 
+    [Fact]
+    public void Extract_ExcelColumnLabelsAndRowNumbers_AreIgnoredWithoutShiftingDataColumns()
+    {
+        List<OcrToken> tokens = CreateOcrTableTokens(splitRoleOneOnFirstRow: false).ToList();
+        float[] centers = [0.06F, 0.17F, 0.28F, 0.39F, 0.52F, 0.64F, 0.78F, 0.91F];
+        string[] labels = ["A", "B", "C", "D", "E", "F", "G", "H"];
+        for (int index = 0; index < labels.Length; index++)
+        {
+            tokens.Add(Token("table.png", labels[index], centers[index], 0.05F));
+        }
+
+        for (int row = 0; row < 3; row++)
+        {
+            tokens.Add(Token("table.png", (row + 1).ToString(), 0.01F, 0.20F + row * 0.10F));
+        }
+
+        ScheduleExtractionResult result = new ScheduleExtractor().Extract(
+            tokens.OrderBy(static token => StableShuffleKey($"{token.Text}:{token.Bounds.Left}:{token.Bounds.Top}")));
+
+        Assert.Equal(3, result.Candidates.Count);
+        ScheduleCandidate first = Assert.Single(
+            result.Candidates,
+            static candidate => candidate.RawDateText == "8/3");
+        Assert.Equal("星期一", first.RawWeekdayText);
+        Assert.Equal("队长3", first.Role1);
+        Assert.Equal("岗位二3", first.Role2);
+        Assert.Equal("右一3", first.Role3);
+        Assert.Equal("右二3", first.Role4);
+        Assert.DoesNotContain(result.Candidates, static candidate => candidate.RawDateText == "1");
+        Assert.DoesNotContain(result.Candidates, static candidate => candidate.RawWeekdayText == "A");
+    }
     private static IEnumerable<ScheduleCandidate> CreateFourDaySeries()
     {
         for (int seriesOffset = 0; seriesOffset < 4; seriesOffset++)
