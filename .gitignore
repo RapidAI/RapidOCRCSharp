@@ -167,5 +167,8 @@ Test
 # Local publish artifacts
 dist/
 
+# Local standalone schedule generator
+/schedule_generator/
+
 # Keep the reproducible standalone Windows publish profile in source control.
 !RapidOCRWinform/Properties/PublishProfiles/StandaloneWinX64.pubxml
