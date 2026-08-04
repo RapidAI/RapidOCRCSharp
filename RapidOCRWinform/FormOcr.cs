@@ -9,11 +9,11 @@ namespace RapidOCRWinform;
 
 public partial class FormOcr : Form
 {
-    private const int OcrPadding = 30;
-    private const int OcrMaximumSideLength = 2400;
-    private const float OcrBoxScoreThreshold = 0.45F;
-    private const float OcrBoxThreshold = 0.30F;
-    private const float OcrUnclipRatio = 1.60F;
+    internal const int OcrPadding = 30;
+    internal const int OcrMaximumSideLength = 2400;
+    internal const float OcrBoxScoreThreshold = 0.45F;
+    internal const float OcrBoxThreshold = 0.30F;
+    internal const float OcrUnclipRatio = 1.60F;
 
     private static readonly string[] ModelFileNames =
     [
@@ -266,7 +266,7 @@ public partial class FormOcr : Form
 
             ExtractAndBind();
             outputTabs.SelectedTab = resultTabPage;
-            SetStatus($"整理完成：{_lastBuild?.Rows.Count ?? 0} 个工作日，{_editableRows.Count(static row => row.IssueText.Length > 0)} 行待检查");
+            SetStatus($"整理完成：{_lastBuild?.Rows.Count ?? 0} 个日期，{_editableRows.Count(static row => row.IssueText.Length > 0)} 行待检查");
         }
         catch (Exception exception)
         {
@@ -289,7 +289,11 @@ public partial class FormOcr : Form
     {
         TableLayoutProfile profile = CreateLayoutProfile();
         _lastExtraction = _extractor.Extract(_images.SelectMany(static image => image.Tokens), profile);
-        _lastBuild = _scheduleService.Build(monthPicker.Value.Year, monthPicker.Value.Month, _lastExtraction.Candidates);
+        _lastBuild = _scheduleService.Build(
+            monthPicker.Value.Year,
+            monthPicker.Value.Month,
+            _lastExtraction.Candidates,
+            alignOcrRowsToCalendar: true);
         CaptureDuplicateCandidates(_lastBuild, replace: true);
         BindBuildResult(_lastBuild);
         RememberAppliedSettings();
@@ -303,7 +307,7 @@ public partial class FormOcr : Form
         Role4Column = Decimal.ToInt32(role4ColumnNumeric.Value),
     };
 
-    private static IEnumerable<OcrToken> ConvertTokens(string sourcePath, Size imageSize, OcrResult result)
+    internal static IEnumerable<OcrToken> ConvertTokens(string sourcePath, Size imageSize, OcrResult result)
     {
         foreach (TextBlock block in result.TextBlocks)
         {
@@ -355,8 +359,8 @@ public partial class FormOcr : Form
         int extractionIssues = _lastExtraction?.Issues.Count ?? 0;
         int batchIssues = extractionIssues + build.Issues.Count + build.UnlocatedCandidates.Count;
         resultSummaryLabel.Text = batchIssues > 0
-            ? $"共 {build.Rows.Count} 个工作日，另显示 {build.UnlocatedCandidates.Count} 条未定位记录；{issueRows} 行及 {extractionIssues + build.Issues.Count} 个批次异常待检查。"
-            : $"共 {build.Rows.Count} 个工作日，{issueRows} 行待检查。可直接修改单元格，完成后导出 Excel。";
+            ? $"共 {build.Rows.Count} 个日期，另显示 {build.UnlocatedCandidates.Count} 条未定位记录；{issueRows} 行及 {extractionIssues + build.Issues.Count} 个批次异常待检查。"
+            : $"共 {build.Rows.Count} 个日期，{issueRows} 行待检查。可直接修改单元格，完成后导出 Excel。";
         revalidateButton.Enabled = _editableRows.Count > 0 && !_busy;
         exportButton.Enabled = _editableRows.Count > 0 && !_busy;
         scheduleGrid.ClearSelection();
@@ -629,7 +633,11 @@ public partial class FormOcr : Form
 
         try
         {
-            _lastBuild = _scheduleService.Build(monthPicker.Value.Year, monthPicker.Value.Month, _lastExtraction.Candidates);
+            _lastBuild = _scheduleService.Build(
+                monthPicker.Value.Year,
+                monthPicker.Value.Month,
+                _lastExtraction.Candidates,
+                alignOcrRowsToCalendar: true);
             CaptureDuplicateCandidates(_lastBuild, replace: true);
             BindBuildResult(_lastBuild);
             _appliedMonth = FirstDayOfMonth(monthPicker.Value);
@@ -773,9 +781,8 @@ public partial class FormOcr : Form
         StringBuilder builder = new();
         builder.AppendLine($"候选记录：{extraction.Candidates.Count}");
         builder.AppendLine($"未分配 OCR 项：{extraction.UnassignedTokens.Count}");
-        builder.AppendLine($"目标工作日：{build.Rows.Count}");
+        builder.AppendLine($"目标日期：{build.Rows.Count}");
         builder.AppendLine($"未定位/跨月记录：{build.UnlocatedCandidates.Count}");
-        builder.AppendLine($"已排除周末记录：{build.WeekendCandidates.Count}");
         builder.AppendLine($"同日重复候选：{_duplicateCandidatesForReview.Count}");
 
         IEnumerable<ScheduleIssue> batchIssues = extraction.Issues.Concat(build.Issues);
@@ -938,7 +945,7 @@ public partial class FormOcr : Form
         _ => null,
     };
 
-    private static Size ReadImageSize(string path)
+    internal static Size ReadImageSize(string path)
     {
         using FileStream stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         using Image image = Image.FromStream(stream, useEmbeddedColorManagement: false, validateImageData: false);

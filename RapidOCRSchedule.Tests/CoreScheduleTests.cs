@@ -67,11 +67,9 @@ public sealed class CoreScheduleTests
         ScheduleBuildResult first = service.Build(TargetYear, TargetMonth, ordered);
         ScheduleBuildResult second = service.Build(TargetYear, TargetMonth, shuffled);
 
-        DateOnly[] expectedWorkdays = DatesInTargetMonth()
-            .Where(static date => date.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday)
-            .ToArray();
-        Assert.Equal(expectedWorkdays, first.Rows.Select(static row => row.Date!.Value));
-        Assert.Equal(expectedWorkdays, second.Rows.Select(static row => row.Date!.Value));
+        DateOnly[] expectedDates = DatesInTargetMonth().ToArray();
+        Assert.Equal(expectedDates, first.Rows.Select(static row => row.Date!.Value));
+        Assert.Equal(expectedDates, second.Rows.Select(static row => row.Date!.Value));
         Assert.Equal(
             first.Rows.Select(static row => (row.Date, row.Role1, row.Role2, row.Role3, row.Role4)),
             second.Rows.Select(static row => (row.Date, row.Role1, row.Role2, row.Role3, row.Role4)));
@@ -80,22 +78,18 @@ public sealed class CoreScheduleTests
     }
 
     [Fact]
-    public void Build_FiltersWeekendCandidatesFromOutput()
+    public void Build_IncludesWeekendCandidatesInOutput()
     {
         ScheduleBuildResult result = new ScheduleService().Build(
             TargetYear,
             TargetMonth,
             CreateFourDaySeries());
 
-        Assert.DoesNotContain(
+        Assert.Contains(
             result.Rows,
             static row => row.Date!.Value.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday);
-        Assert.Equal(10, result.WeekendCandidates.Count);
-        Assert.All(
-            result.WeekendCandidates,
-            static candidate => Assert.True(
-                DateTextParser.TryCreateDate(TargetYear, candidate.RawDateText, out DateOnly date) &&
-                date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday));
+        Assert.Equal(31, result.Rows.Count);
+        Assert.Empty(result.WeekendCandidates);
     }
 
     [Fact]
@@ -112,6 +106,142 @@ public sealed class CoreScheduleTests
 
         Assert.True(missing.IsMissingPlaceholder);
         Assert.Contains(missing.Issues, static issue => issue.Code == ScheduleIssueCode.MissingWorkday);
+    }
+
+    [Fact]
+    public void Build_RecoversSlashReadAsOneUsingRecognizedWeekday()
+    {
+        ScheduleCandidate candidate = CreateCandidate(7, "3.png", role1: "陆俊杰");
+        candidate.RawDateText = "817";
+
+        ScheduleBuildResult result = new ScheduleService().Build(TargetYear, TargetMonth, [candidate]);
+        ScheduleRow row = Assert.Single(
+            result.Rows,
+            static value => value.Date == new DateOnly(TargetYear, TargetMonth, 7));
+
+        Assert.Equal("8/7", candidate.RawDateText);
+        Assert.Equal("陆俊杰", row.Role1);
+        Assert.False(row.IsMissingPlaceholder);
+        Assert.Empty(result.UnlocatedCandidates);
+    }
+
+    [Fact]
+    public void Build_DoesNotGuessAmbiguousCompactDateWithoutRecognizedWeekday()
+    {
+        ScheduleCandidate candidate = CreateCandidate(7);
+        candidate.RawDateText = "817";
+        candidate.RawWeekdayText = "星期";
+
+        ScheduleBuildResult result = new ScheduleService().Build(TargetYear, TargetMonth, [candidate]);
+
+        Assert.Single(result.UnlocatedCandidates);
+        Assert.Equal("817", candidate.RawDateText);
+    }
+
+    [Fact]
+    public void Build_RecoversCompactDateWhenOnlyOneInterpretationIsValid()
+    {
+        ScheduleCandidate candidate = CreateCandidate(3);
+        candidate.RawDateText = "83";
+        candidate.RawWeekdayText = "星期";
+
+        ScheduleBuildResult result = new ScheduleService().Build(TargetYear, TargetMonth, [candidate]);
+        ScheduleRow row = Assert.Single(
+            result.Rows,
+            static value => value.Date == new DateOnly(TargetYear, TargetMonth, 3));
+
+        Assert.Equal("8/3", candidate.RawDateText);
+        Assert.False(row.IsMissingPlaceholder);
+        Assert.Empty(result.UnlocatedCandidates);
+    }
+
+    [Fact]
+    public void Build_OcrCalendarAlignment_CorrectsRecognizedDatesAndWeekdaysFromTargetMonth()
+    {
+        List<ScheduleCandidate> candidates = CreateFourDaySeries().ToList();
+        ScheduleCandidate augustThird = Assert.Single(
+            candidates,
+            static candidate => candidate.RawDateText == "8/3");
+        augustThird.RawDateText = "1";
+        augustThird.RawWeekdayText = "8/2";
+
+        ScheduleCandidate augustSeventh = Assert.Single(
+            candidates,
+            static candidate => candidate.RawDateText == "8/7");
+        augustSeventh.RawDateText = "817";
+        augustSeventh.RawWeekdayText = "星期";
+        augustSeventh.Role1 = "陆俊杰";
+
+        ScheduleBuildResult result = new ScheduleService().Build(
+            TargetYear,
+            TargetMonth,
+            candidates.OrderBy(static candidate => StableShuffleKey($"{candidate.SourceImageId}:{candidate.RowCenterY}")),
+            alignOcrRowsToCalendar: true);
+
+        Assert.Equal(31, result.Rows.Count);
+        Assert.Empty(result.UnlocatedCandidates);
+        Assert.DoesNotContain(result.Rows, static row => row.IsMissingPlaceholder);
+        Assert.All(
+            result.Rows,
+            static row => Assert.Equal(
+                WeekdayTextParser.ToChinese(row.Date!.Value.DayOfWeek),
+                row.Weekday));
+
+        ScheduleRow correctedThird = Assert.Single(
+            result.Rows,
+            static row => row.Date == new DateOnly(TargetYear, TargetMonth, 3));
+        ScheduleRow correctedSeventh = Assert.Single(
+            result.Rows,
+            static row => row.Date == new DateOnly(TargetYear, TargetMonth, 7));
+        Assert.Equal("星期一", correctedThird.Weekday);
+        Assert.Equal("星期五", correctedSeventh.Weekday);
+        Assert.Equal("陆俊杰", correctedSeventh.Role1);
+        Assert.DoesNotContain(
+            correctedThird.Issues.Concat(correctedSeventh.Issues),
+            static issue => issue.Code is ScheduleIssueCode.InvalidDate or
+                ScheduleIssueCode.InvalidWeekday or
+                ScheduleIssueCode.WeekdayMismatch);
+
+        // Raw OCR diagnostics remain unchanged; only the final schedule is corrected.
+        Assert.Equal("1", augustThird.RawDateText);
+        Assert.Equal("817", augustSeventh.RawDateText);
+    }
+
+    [Fact]
+    public void Build_OcrCalendarAlignment_RecomputesWeekdaysWhenTargetYearChanges()
+    {
+        const int changedYear = 2027;
+        ScheduleBuildResult result = new ScheduleService().Build(
+            changedYear,
+            TargetMonth,
+            CreateFourDaySeries(),
+            alignOcrRowsToCalendar: true);
+
+        ScheduleRow augustThird = Assert.Single(
+            result.Rows,
+            static row => row.Date == new DateOnly(changedYear, TargetMonth, 3));
+        Assert.Equal("星期二", augustThird.Weekday);
+        Assert.DoesNotContain(result.Rows, static row => row.IsMissingPlaceholder);
+    }
+
+    [Fact]
+    public void Build_OcrCalendarAlignment_DoesNotGuessWhenImageSeriesAreAmbiguous()
+    {
+        ScheduleCandidate[] candidates = CreateFourDaySeries().ToArray();
+        foreach (ScheduleCandidate candidate in candidates)
+        {
+            candidate.RawDateText = string.Empty;
+            candidate.RawWeekdayText = string.Empty;
+        }
+
+        ScheduleBuildResult result = new ScheduleService().Build(
+            TargetYear,
+            TargetMonth,
+            candidates,
+            alignOcrRowsToCalendar: true);
+
+        Assert.Equal(candidates.Length, result.UnlocatedCandidates.Count);
+        Assert.All(result.Rows, static row => Assert.True(row.IsMissingPlaceholder));
     }
 
     [Fact]
@@ -449,6 +579,7 @@ public sealed class CoreScheduleTests
         Assert.DoesNotContain(result.Candidates, static candidate => candidate.RawDateText == "1");
         Assert.DoesNotContain(result.Candidates, static candidate => candidate.RawWeekdayText == "A");
     }
+
     private static IEnumerable<ScheduleCandidate> CreateFourDaySeries()
     {
         for (int seriesOffset = 0; seriesOffset < 4; seriesOffset++)

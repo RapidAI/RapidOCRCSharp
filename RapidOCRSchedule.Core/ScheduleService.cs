@@ -1,7 +1,7 @@
 namespace RapidOCRSchedule.Core;
 
 /// <summary>
-/// Merges extracted rows by date, creates all missing workdays, removes weekends,
+/// Merges extracted rows by date, creates all missing calendar dates,
 /// and performs the business validations required by the schedule workflow.
 /// </summary>
 public sealed class ScheduleService
@@ -9,7 +9,8 @@ public sealed class ScheduleService
     public ScheduleBuildResult Build(
         int targetYear,
         int targetMonth,
-        IEnumerable<ScheduleCandidate> candidates)
+        IEnumerable<ScheduleCandidate> candidates,
+        bool alignOcrRowsToCalendar = false)
     {
         if (targetYear is < 1900 or > 9999)
         {
@@ -22,10 +23,16 @@ public sealed class ScheduleService
         }
 
         ArgumentNullException.ThrowIfNull(candidates);
+        List<ScheduleCandidate> preparedCandidates = candidates.ToList();
+        if (alignOcrRowsToCalendar)
+        {
+            preparedCandidates = AlignOcrRowsToCalendar(targetYear, targetMonth, preparedCandidates);
+        }
+
         ScheduleBuildResult result = new();
         List<LocatedCandidate> located = [];
 
-        foreach (ScheduleCandidate candidate in candidates)
+        foreach (ScheduleCandidate candidate in preparedCandidates)
         {
             // Build may be rerun when the user changes the target month. Remove findings that
             // are relative to the previous target so they cannot leak into the new result.
@@ -39,7 +46,8 @@ public sealed class ScheduleService
                     ScheduleIssueCode.EmptyRole3 or
                     ScheduleIssueCode.EmptyRole4);
 
-            if (!DateTextParser.TryCreateDate(targetYear, candidate.RawDateText, out DateOnly date))
+            if (!DateTextParser.TryCreateDate(targetYear, candidate.RawDateText, out DateOnly date) &&
+                !TryRecoverCompactOcrDate(targetYear, targetMonth, candidate, out date))
             {
                 AddIssueIfMissing(
                     candidate.Issues,
@@ -53,6 +61,7 @@ public sealed class ScheduleService
                 continue;
             }
 
+            candidate.RawDateText = date.ToString("M/d");
             located.Add(new LocatedCandidate(candidate, date));
         }
 
@@ -80,13 +89,7 @@ public sealed class ScheduleService
         List<LocatedCandidate> targetMonthCandidates = located
             .Where(item => item.Date.Month == targetMonth)
             .ToList();
-        foreach (LocatedCandidate item in targetMonthCandidates.Where(static item => IsWeekend(item.Date.DayOfWeek)))
-        {
-            result.WeekendCandidates.Add(item.Candidate);
-        }
-
         Dictionary<DateOnly, List<LocatedCandidate>> byDate = targetMonthCandidates
-            .Where(static item => !IsWeekend(item.Date.DayOfWeek))
             .GroupBy(static item => item.Date)
             .ToDictionary(static group => group.Key, static group => group.ToList());
 
@@ -94,11 +97,6 @@ public sealed class ScheduleService
         DateOnly last = new(targetYear, targetMonth, DateTime.DaysInMonth(targetYear, targetMonth));
         for (DateOnly date = first; date <= last; date = date.AddDays(1))
         {
-            if (IsWeekend(date.DayOfWeek))
-            {
-                continue;
-            }
-
             if (!byDate.TryGetValue(date, out List<LocatedCandidate>? matches) || matches.Count == 0)
             {
                 ScheduleRow missing = new()
@@ -110,7 +108,7 @@ public sealed class ScheduleService
                 };
                 missing.Issues.Add(new ScheduleIssue(
                     ScheduleIssueCode.MissingWorkday,
-                    "该工作日未在 4 张图片中找到，请手动补充。"));
+                    "该日期未在 4 张图片中找到，请手动补充。"));
                 result.Rows.Add(missing);
                 continue;
             }
@@ -314,8 +312,232 @@ public sealed class ScheduleService
         }
     }
 
-    private static bool IsWeekend(DayOfWeek weekday) =>
-        weekday is DayOfWeek.Saturday or DayOfWeek.Sunday;
+    private static List<ScheduleCandidate> AlignOcrRowsToCalendar(
+        int targetYear,
+        int targetMonth,
+        List<ScheduleCandidate> candidates)
+    {
+        ImageSeries[] series = candidates
+            .GroupBy(static candidate => candidate.SourceImageId, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(static group => group.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(static group => new ImageSeries(
+                group.Key,
+                group.OrderBy(static candidate => candidate.RowCenterY).ToList()))
+            .ToArray();
+        if (series.Length != 4 || series.Any(static value => string.IsNullOrWhiteSpace(value.SourceImageId)))
+        {
+            return candidates;
+        }
+
+        int daysInMonth = DateTime.DaysInMonth(targetYear, targetMonth);
+        List<CalendarAssignment> assignments = [];
+        foreach (int[] offsets in GetFourDaySeriesPermutations())
+        {
+            bool countsMatch = true;
+            int score = 0;
+            for (int index = 0; index < series.Length; index++)
+            {
+                int expectedCount = ((daysInMonth - offsets[index]) / 4) + 1;
+                if (series[index].Candidates.Count != expectedCount)
+                {
+                    countsMatch = false;
+                    break;
+                }
+
+                score += ScoreSeries(
+                    targetYear,
+                    targetMonth,
+                    offsets[index],
+                    series[index].Candidates);
+            }
+
+            if (countsMatch)
+            {
+                assignments.Add(new CalendarAssignment(offsets, score));
+            }
+        }
+
+        CalendarAssignment[] ranked = assignments
+            .OrderByDescending(static assignment => assignment.Score)
+            .ToArray();
+        if (ranked.Length == 0 || ranked[0].Score <= 0 ||
+            (ranked.Length > 1 && ranked[0].Score == ranked[1].Score))
+        {
+            return candidates;
+        }
+
+        Dictionary<ScheduleCandidate, DateOnly> calendarDates = [];
+        for (int seriesIndex = 0; seriesIndex < series.Length; seriesIndex++)
+        {
+            int firstDay = ranked[0].Offsets[seriesIndex];
+            for (int rowIndex = 0; rowIndex < series[seriesIndex].Candidates.Count; rowIndex++)
+            {
+                calendarDates[series[seriesIndex].Candidates[rowIndex]] =
+                    new DateOnly(targetYear, targetMonth, firstDay + rowIndex * 4);
+            }
+        }
+
+        return candidates.Select(candidate =>
+        {
+            if (!calendarDates.TryGetValue(candidate, out DateOnly calendarDate))
+            {
+                return candidate;
+            }
+
+            ScheduleCandidate corrected = CloneCandidate(candidate);
+            corrected.RawDateText = calendarDate.ToString("M/d");
+            corrected.RawWeekdayText = WeekdayTextParser.ToChinese(calendarDate.DayOfWeek);
+            return corrected;
+        }).ToList();
+    }
+
+    private static int ScoreSeries(
+        int targetYear,
+        int targetMonth,
+        int firstDay,
+        IReadOnlyList<ScheduleCandidate> candidates)
+    {
+        int score = 0;
+        for (int index = 0; index < candidates.Count; index++)
+        {
+            DateOnly expected = new(targetYear, targetMonth, firstDay + index * 4);
+            ScheduleCandidate candidate = candidates[index];
+            if (DateTextParser.TryCreateDate(targetYear, candidate.RawDateText, out DateOnly recognizedDate))
+            {
+                if (recognizedDate.Month != targetMonth)
+                {
+                    score -= 20;
+                }
+                else if (recognizedDate.Day == expected.Day)
+                {
+                    score += 30;
+                }
+                else
+                {
+                    score -= Math.Min(30, Math.Abs(recognizedDate.Day - expected.Day) * 5);
+                }
+            }
+
+            if (WeekdayTextParser.TryParse(candidate.RawWeekdayText, out DayOfWeek recognizedWeekday))
+            {
+                score += recognizedWeekday == expected.DayOfWeek ? 10 : -10;
+            }
+        }
+
+        return score;
+    }
+
+    private static IEnumerable<int[]> GetFourDaySeriesPermutations()
+    {
+        for (int first = 1; first <= 4; first++)
+        {
+            for (int second = 1; second <= 4; second++)
+            {
+                for (int third = 1; third <= 4; third++)
+                {
+                    for (int fourth = 1; fourth <= 4; fourth++)
+                    {
+                        int[] values = [first, second, third, fourth];
+                        if (values.Distinct().Count() == 4)
+                        {
+                            yield return values;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static ScheduleCandidate CloneCandidate(ScheduleCandidate source)
+    {
+        ScheduleCandidate clone = new()
+        {
+            RawDateText = source.RawDateText,
+            RawWeekdayText = source.RawWeekdayText,
+            Role1 = source.Role1,
+            Role2 = source.Role2,
+            Role3 = source.Role3,
+            Role4 = source.Role4,
+            SourceImageId = source.SourceImageId,
+            RowCenterY = source.RowCenterY,
+        };
+        clone.Issues.AddRange(source.Issues);
+        clone.SourceTokens.AddRange(source.SourceTokens);
+        return clone;
+    }
+
+    private static bool TryRecoverCompactOcrDate(
+        int targetYear,
+        int targetMonth,
+        ScheduleCandidate candidate,
+        out DateOnly date)
+    {
+        date = default;
+        string compact = DateTextParser.Normalize(candidate.RawDateText)
+            .Replace(" ", string.Empty, StringComparison.Ordinal)
+            .TrimEnd('日', '号');
+        string monthText = targetMonth.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (!compact.StartsWith(monthText, StringComparison.Ordinal) || compact.Length <= monthText.Length)
+        {
+            return false;
+        }
+
+        List<DateOnly> alternatives = [];
+        AddCompactDateAlternative(compact[monthText.Length..], targetYear, targetMonth, alternatives);
+
+        char possibleSeparator = compact[monthText.Length];
+        if (possibleSeparator is '1' or 'I' or 'i' or 'l' or '|' or '!')
+        {
+            AddCompactDateAlternative(compact[(monthText.Length + 1)..], targetYear, targetMonth, alternatives);
+        }
+
+        alternatives = alternatives.Distinct().ToList();
+        if (alternatives.Count == 1)
+        {
+            date = alternatives[0];
+            return true;
+        }
+
+        if (alternatives.Count > 1 &&
+            WeekdayTextParser.TryParse(candidate.RawWeekdayText, out DayOfWeek weekday))
+        {
+            DateOnly[] weekdayMatches = alternatives
+                .Where(value => value.DayOfWeek == weekday)
+                .ToArray();
+            if (weekdayMatches.Length == 1)
+            {
+                date = weekdayMatches[0];
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static void AddCompactDateAlternative(
+        string dayText,
+        int targetYear,
+        int targetMonth,
+        List<DateOnly> alternatives)
+    {
+        if (!int.TryParse(
+                dayText,
+                System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out int day))
+        {
+            return;
+        }
+
+        try
+        {
+            alternatives.Add(new DateOnly(targetYear, targetMonth, day));
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            // This interpretation is not a real calendar date.
+        }
+    }
 
     private static bool IsPersistentExtractionIssue(ScheduleIssueCode code) => code is
         ScheduleIssueCode.DuplicateDate or
@@ -324,5 +546,7 @@ public sealed class ScheduleService
         ScheduleIssueCode.LowOcrConfidence or
         ScheduleIssueCode.InsufficientColumns;
 
+    private sealed record ImageSeries(string SourceImageId, List<ScheduleCandidate> Candidates);
+    private sealed record CalendarAssignment(int[] Offsets, int Score);
     private sealed record LocatedCandidate(ScheduleCandidate Candidate, DateOnly Date);
 }

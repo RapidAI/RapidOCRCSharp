@@ -6,7 +6,7 @@ using System.Xml;
 namespace RapidOCRSchedule.Excel;
 
 /// <summary>
-/// Writes simplified workday schedules as Office Open XML workbooks.
+/// Writes simplified schedules as Office Open XML workbooks.
 /// </summary>
 public static class ScheduleExcelExporter
 {
@@ -30,7 +30,7 @@ public static class ScheduleExcelExporter
 
     /// <summary>
     /// Exports <paramref name="rows"/> to an XLSX file, replacing an existing file at the same path.
-    /// Weekend rows are omitted and the remaining rows are sorted by date.
+    /// Rows are sorted by date; weekend rows are retained.
     /// </summary>
     /// <param name="filePath">Destination path, including the .xlsx file name.</param>
     /// <param name="rows">Schedule rows to export.</param>
@@ -70,7 +70,7 @@ public static class ScheduleExcelExporter
 
     /// <summary>
     /// Exports <paramref name="rows"/> to a writable stream as an XLSX workbook.
-    /// Weekend rows are omitted and the remaining rows are sorted by date.
+    /// Rows are sorted by date; weekend rows are retained.
     /// </summary>
     /// <param name="destination">Writable destination stream.</param>
     /// <param name="rows">Schedule rows to export.</param>
@@ -120,11 +120,6 @@ public static class ScheduleExcelExporter
                     nameof(rows),
                     row.Date,
                     $"Excel dates must be on or after {MinimumExcelDate:yyyy-MM-dd}.");
-            }
-
-            if (IsWeekend(row.Date.DayOfWeek))
-            {
-                continue;
             }
 
             if (!dates.Add(row.Date))
@@ -180,9 +175,6 @@ public static class ScheduleExcelExporter
                 exception);
         }
     }
-
-    private static bool IsWeekend(DayOfWeek dayOfWeek) =>
-        dayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
 
     private static void WritePackage(Stream destination, IReadOnlyList<ExportRow> rows, bool leaveOpen)
     {

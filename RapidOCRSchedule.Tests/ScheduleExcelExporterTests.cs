@@ -99,7 +99,7 @@ public sealed class ScheduleExcelExporterTests
     }
 
     [Fact]
-    public void Export_FiltersWeekendsAndSortsRemainingRowsByDate()
+    public void Export_RetainsWeekendsAndSortsRowsByDate()
     {
         ExportRow[] rows =
         [
@@ -127,13 +127,19 @@ public sealed class ScheduleExcelExporterTests
             .ToArray();
 
         Assert.Equal(
-            [new DateOnly(2026, 8, 3), new DateOnly(2026, 8, 4), new DateOnly(2026, 8, 7)],
+            [
+                new DateOnly(2026, 8, 1),
+                new DateOnly(2026, 8, 2),
+                new DateOnly(2026, 8, 3),
+                new DateOnly(2026, 8, 4),
+                new DateOnly(2026, 8, 7),
+            ],
             exportedDates);
-        Assert.Equal(["Monday", "Tuesday", "Friday"], exportedNames);
+        Assert.Equal(["Saturday", "Sunday", "Monday", "Tuesday", "Friday"], exportedNames);
     }
 
     [Fact]
-    public void Export_ThrowsWhenAWorkdayDateIsDuplicated()
+    public void Export_ThrowsWhenADateIsDuplicated()
     {
         DateOnly duplicateDate = new(2026, 8, 3);
         ExportRow[] rows =
