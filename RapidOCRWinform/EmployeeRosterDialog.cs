@@ -6,10 +6,14 @@ internal sealed class EmployeeRosterDialog : Form
 {
     private readonly TextBox _namesTextBox = new();
     private readonly Label _countLabel = new();
+    private readonly bool _convertTraditionalToSimplified;
 
-    public EmployeeRosterDialog(IEnumerable<string> employeeNames)
+    public EmployeeRosterDialog(
+        IEnumerable<string> employeeNames,
+        bool convertTraditionalToSimplified)
     {
-        EmployeeNames = EmployeeNameResolver.NormalizeEmployeeNames(employeeNames);
+        _convertTraditionalToSimplified = convertTraditionalToSimplified;
+        EmployeeNames = EmployeeNameResolver.NormalizeEmployeeNames(employeeNames, convertTraditionalToSimplified);
         InitializeDialog();
         _namesTextBox.Lines = EmployeeNames.ToArray();
         UpdateCount();
@@ -44,7 +48,9 @@ internal sealed class EmployeeRosterDialog : Form
             AutoSize = true,
             Dock = DockStyle.Fill,
             Margin = new Padding(0, 0, 0, 10),
-            Text = "每行填写一个员工姓名，建议填写正式的简体姓名。\n识别结果只有在名单中存在唯一匹配时才会自动纠正。",
+            Text = _convertTraditionalToSimplified
+                ? "每行填写一个员工姓名，当前会自动保存为简体。\n识别结果只有在名单中存在唯一匹配时才会自动纠正。"
+                : "每行填写一个员工姓名，当前会保留输入字形。\n识别结果只有在名单中存在唯一匹配时才会自动纠正。",
         };
 
         _namesTextBox.AcceptsReturn = true;
@@ -115,5 +121,5 @@ internal sealed class EmployeeRosterDialog : Form
     }
 
     private IReadOnlyList<string> ParseEmployeeNames() =>
-        EmployeeNameResolver.NormalizeEmployeeNames(_namesTextBox.Lines);
+        EmployeeNameResolver.NormalizeEmployeeNames(_namesTextBox.Lines, _convertTraditionalToSimplified);
 }

@@ -7,19 +7,25 @@ namespace RapidOCRSchedule.Core;
 public sealed class EmployeeNameResolver
 {
     private const uint SimplifiedChineseMapFlag = 0x02000000;
+    private readonly bool _convertTraditionalToSimplified;
     private readonly IReadOnlyList<EmployeeNameEntry> _entries;
     private readonly Dictionary<string, string> _exactNames;
 
-    public EmployeeNameResolver(IEnumerable<string>? employeeNames)
+    public EmployeeNameResolver(
+        IEnumerable<string>? employeeNames,
+        bool convertTraditionalToSimplified = true)
     {
-        IReadOnlyList<string> normalizedNames = NormalizeEmployeeNames(employeeNames);
+        _convertTraditionalToSimplified = convertTraditionalToSimplified;
+        IReadOnlyList<string> normalizedNames = NormalizeEmployeeNames(employeeNames, convertTraditionalToSimplified);
         _entries = normalizedNames
             .Select(static name => new EmployeeNameEntry(name, Canonicalize(name)))
             .ToArray();
         _exactNames = _entries.ToDictionary(static entry => entry.CanonicalName, static entry => entry.Name, StringComparer.Ordinal);
     }
 
-    public static IReadOnlyList<string> NormalizeEmployeeNames(IEnumerable<string>? employeeNames)
+    public static IReadOnlyList<string> NormalizeEmployeeNames(
+        IEnumerable<string>? employeeNames,
+        bool convertTraditionalToSimplified = true)
     {
         if (employeeNames is null)
         {
@@ -30,7 +36,7 @@ public sealed class EmployeeNameResolver
         HashSet<string> seen = new(StringComparer.Ordinal);
         foreach (string? employeeName in employeeNames)
         {
-            string normalized = ToSimplifiedChinese(employeeName).Trim();
+            string normalized = NormalizeInput(employeeName, convertTraditionalToSimplified).Trim();
             string canonical = Canonicalize(normalized);
             if (canonical.Length == 0 || !seen.Add(canonical))
             {
@@ -45,8 +51,8 @@ public sealed class EmployeeNameResolver
 
     public string Resolve(string? recognizedName)
     {
-        string simplified = ToSimplifiedChinese(recognizedName).Trim();
-        string canonical = Canonicalize(simplified);
+        string normalized = NormalizeInput(recognizedName, _convertTraditionalToSimplified).Trim();
+        string canonical = Canonicalize(normalized);
         if (canonical.Length == 0)
         {
             return string.Empty;
@@ -62,7 +68,7 @@ public sealed class EmployeeNameResolver
         // must agree. Ambiguous one-edit matches are left unchanged for manual review.
         if (canonical.Length < 3)
         {
-            return simplified;
+            return normalized;
         }
 
         string? uniqueMatch = null;
@@ -78,14 +84,19 @@ public sealed class EmployeeNameResolver
 
             if (uniqueMatch is not null)
             {
-                return simplified;
+                return normalized;
             }
 
             uniqueMatch = entry.Name;
         }
 
-        return uniqueMatch ?? simplified;
+        return uniqueMatch ?? normalized;
     }
+
+    private static string NormalizeInput(string? value, bool convertTraditionalToSimplified) =>
+        convertTraditionalToSimplified
+            ? ToSimplifiedChinese(value)
+            : (value ?? string.Empty).Normalize(NormalizationForm.FormKC);
 
     public static string ToSimplifiedChinese(string? value)
     {

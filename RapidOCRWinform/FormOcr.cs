@@ -59,8 +59,11 @@ public partial class FormOcr : Form
         monthPicker.Value = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
         role3ColumnNumeric.Value = NormalizeColumnSetting(_settings.Role3Column, -2);
         role4ColumnNumeric.Value = NormalizeColumnSetting(_settings.Role4Column, -1);
+        convertTraditionalToSimplifiedCheckBox.Checked = _settings.ConvertTraditionalToSimplified;
         _settings.EmployeeNames = EmployeeNameResolver
-            .NormalizeEmployeeNames(_settings.EmployeeNames ?? [])
+            .NormalizeEmployeeNames(
+                _settings.EmployeeNames ?? [],
+                _settings.ConvertTraditionalToSimplified)
             .ToList();
         UpdateEmployeeRosterStatus();
         RememberAppliedSettings();
@@ -309,7 +312,9 @@ public partial class FormOcr : Form
 
     private void employeeRosterButton_Click(object? sender, EventArgs e)
     {
-        using EmployeeRosterDialog dialog = new(_settings.EmployeeNames ?? []);
+        using EmployeeRosterDialog dialog = new(
+            _settings.EmployeeNames ?? [],
+            _settings.ConvertTraditionalToSimplified);
         if (dialog.ShowDialog(this) != DialogResult.OK)
         {
             return;
@@ -358,7 +363,9 @@ public partial class FormOcr : Form
 
     private void ApplyEmployeeNameCorrections(IEnumerable<ScheduleCandidate> candidates)
     {
-        EmployeeNameResolver resolver = new(_settings.EmployeeNames ?? []);
+        EmployeeNameResolver resolver = new(
+            _settings.EmployeeNames ?? [],
+            _settings.ConvertTraditionalToSimplified);
         _employeeNameCorrections.Clear();
         foreach (ScheduleCandidate candidate in candidates)
         {
@@ -394,6 +401,63 @@ public partial class FormOcr : Form
         int count = _settings.EmployeeNames?.Count ?? 0;
         employeeRosterStatusLabel.Text = count > 0 ? $"员工名单：已配置 {count} 人" : "员工名单：尚未配置";
         employeeRosterStatusLabel.ForeColor = count > 0 ? Color.DarkGreen : Color.DimGray;
+    }
+
+    private void convertTraditionalToSimplifiedCheckBox_CheckedChanged(object? sender, EventArgs e)
+    {
+        if (!_loaded || _suppressSettingEvents)
+        {
+            return;
+        }
+
+        bool previousValue = _settings.ConvertTraditionalToSimplified;
+        List<string> previousNames = _settings.EmployeeNames ?? [];
+        _settings.ConvertTraditionalToSimplified = convertTraditionalToSimplifiedCheckBox.Checked;
+        _settings.EmployeeNames = EmployeeNameResolver
+            .NormalizeEmployeeNames(previousNames, _settings.ConvertTraditionalToSimplified)
+            .ToList();
+
+        if (!_settings.TrySave(out string? errorMessage))
+        {
+            _settings.ConvertTraditionalToSimplified = previousValue;
+            _settings.EmployeeNames = previousNames;
+            _suppressSettingEvents = true;
+            convertTraditionalToSimplifiedCheckBox.Checked = previousValue;
+            _suppressSettingEvents = false;
+            MessageBox.Show(
+                this,
+                $"该选项无法保存，原配置未更改：\n{errorMessage}",
+                "保存失败",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+            return;
+        }
+
+        UpdateEmployeeRosterStatus();
+        string stateText = _settings.ConvertTraditionalToSimplified ? "已开启" : "已关闭";
+        if (_lastExtraction is not null && !_hasManualEdits)
+        {
+            try
+            {
+                ExtractAndBind();
+                SetStatus($"自动繁转简{stateText}，当前结果已重新整理");
+            }
+            catch (Exception exception)
+            {
+                SetStatus($"自动繁转简{stateText}，下次识别时生效");
+                MessageBox.Show(
+                    this,
+                    $"选项已保存，但无法重新整理当前结果：\n{exception.Message}",
+                    "重新整理失败",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+        }
+        else
+        {
+            string suffix = _hasManualEdits ? "；为保留手工修改，将在下次识别时生效" : string.Empty;
+            SetStatus($"自动繁转简{stateText}{suffix}");
+        }
     }
 
     private TableLayoutProfile CreateLayoutProfile() => new()
@@ -1005,6 +1069,7 @@ public partial class FormOcr : Form
         monthPicker.Enabled = !busy;
         role3ColumnNumeric.Enabled = !busy;
         role4ColumnNumeric.Enabled = !busy;
+        convertTraditionalToSimplifiedCheckBox.Enabled = !busy;
         employeeRosterButton.Enabled = !busy;
         scheduleGrid.ReadOnly = busy;
         if (message is not null)

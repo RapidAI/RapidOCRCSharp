@@ -8,6 +8,8 @@ internal sealed class AppSettings
 
     public int Role4Column { get; set; } = -1;
 
+    public bool ConvertTraditionalToSimplified { get; set; } = true;
+
     public List<string> EmployeeNames { get; set; } = [];
 
     public static AppSettings Load()

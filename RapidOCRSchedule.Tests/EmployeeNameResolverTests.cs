@@ -45,11 +45,31 @@ public sealed class EmployeeNameResolverTests
     }
 
     [Fact]
+    public void Resolve_KeepsTraditionalCharactersWhenConversionIsDisabled()
+    {
+        EmployeeNameResolver resolver = new([], convertTraditionalToSimplified: false);
+
+        string resolved = resolver.Resolve("姚旭傑");
+
+        Assert.Equal("姚旭傑", resolved);
+    }
+
+    [Fact]
     public void NormalizeEmployeeNames_SimplifiesTrimsAndRemovesDuplicates()
     {
         IReadOnlyList<string> names = EmployeeNameResolver.NormalizeEmployeeNames(
             [" 姚旭傑 ", "姚旭杰", "", " 张三 "]);
 
         Assert.Equal(["姚旭杰", "张三"], names);
+    }
+
+    [Fact]
+    public void NormalizeEmployeeNames_KeepsTraditionalCharactersWhenConversionIsDisabled()
+    {
+        IReadOnlyList<string> names = EmployeeNameResolver.NormalizeEmployeeNames(
+            ["姚旭傑", "姚旭杰"],
+            convertTraditionalToSimplified: false);
+
+        Assert.Equal(["姚旭傑", "姚旭杰"], names);
     }
 }
