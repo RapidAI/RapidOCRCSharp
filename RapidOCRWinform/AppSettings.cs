@@ -8,6 +8,8 @@ internal sealed class AppSettings
 
     public int Role4Column { get; set; } = -1;
 
+    public List<string> EmployeeNames { get; set; } = [];
+
     public static AppSettings Load()
     {
         try
@@ -25,21 +27,26 @@ internal sealed class AppSettings
 
     public void Save()
     {
+        _ = TrySave(out _);
+    }
+
+    public bool TrySave(out string? errorMessage)
+    {
         try
         {
             string path = GetSettingsPath();
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+            errorMessage = null;
+            return true;
         }
-        catch
+        catch (Exception exception)
         {
-            // Settings are a convenience only; inability to persist them must not block OCR.
+            errorMessage = exception.Message;
+            return false;
         }
     }
 
     private static string GetSettingsPath()
-    {
-        string localData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return Path.Combine(localData, "RapidOCRSchedule", "settings.json");
-    }
+        => Path.Combine(AppContext.BaseDirectory, "config", "settings.json");
 }

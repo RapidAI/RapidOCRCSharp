@@ -35,6 +35,8 @@ partial class FormOcr
         modelStatusLabel = new Label();
         initializeModelButton = new Button();
         settingsGroupBox = new GroupBox();
+        employeeRosterStatusLabel = new Label();
+        employeeRosterButton = new Button();
         layoutHintLabel = new Label();
         role4ColumnNumeric = new NumericUpDown();
         role4ColumnLabel = new Label();
@@ -205,7 +207,7 @@ partial class FormOcr
         processButton.FlatStyle = FlatStyle.Flat;
         processButton.Font = new Font("Microsoft YaHei UI", 11F, FontStyle.Bold);
         processButton.ForeColor = Color.White;
-        processButton.Location = new Point(15, 610);
+        processButton.Location = new Point(15, 662);
         processButton.Name = "processButton";
         processButton.Size = new Size(348, 48);
         processButton.TabIndex = 3;
@@ -218,7 +220,7 @@ partial class FormOcr
         modelGroupBox.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         modelGroupBox.Controls.Add(modelStatusLabel);
         modelGroupBox.Controls.Add(initializeModelButton);
-        modelGroupBox.Location = new Point(15, 512);
+        modelGroupBox.Location = new Point(15, 564);
         modelGroupBox.Name = "modelGroupBox";
         modelGroupBox.Size = new Size(348, 84);
         modelGroupBox.TabIndex = 2;
@@ -248,6 +250,8 @@ partial class FormOcr
         // settingsGroupBox
         // 
         settingsGroupBox.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        settingsGroupBox.Controls.Add(employeeRosterStatusLabel);
+        settingsGroupBox.Controls.Add(employeeRosterButton);
         settingsGroupBox.Controls.Add(layoutHintLabel);
         settingsGroupBox.Controls.Add(role4ColumnNumeric);
         settingsGroupBox.Controls.Add(role4ColumnLabel);
@@ -257,11 +261,32 @@ partial class FormOcr
         settingsGroupBox.Controls.Add(targetMonthLabel);
         settingsGroupBox.Location = new Point(15, 324);
         settingsGroupBox.Name = "settingsGroupBox";
-        settingsGroupBox.Size = new Size(348, 174);
+        settingsGroupBox.Size = new Size(348, 226);
         settingsGroupBox.TabIndex = 1;
         settingsGroupBox.TabStop = false;
         settingsGroupBox.Text = "整理设置";
-        // 
+        //
+        // employeeRosterStatusLabel
+        //
+        employeeRosterStatusLabel.AutoEllipsis = true;
+        employeeRosterStatusLabel.ForeColor = Color.DimGray;
+        employeeRosterStatusLabel.Location = new Point(14, 185);
+        employeeRosterStatusLabel.Name = "employeeRosterStatusLabel";
+        employeeRosterStatusLabel.Size = new Size(205, 25);
+        employeeRosterStatusLabel.TabIndex = 7;
+        employeeRosterStatusLabel.Text = "员工名单：尚未配置";
+        employeeRosterStatusLabel.TextAlign = ContentAlignment.MiddleLeft;
+        //
+        // employeeRosterButton
+        //
+        employeeRosterButton.Location = new Point(228, 178);
+        employeeRosterButton.Name = "employeeRosterButton";
+        employeeRosterButton.Size = new Size(104, 34);
+        employeeRosterButton.TabIndex = 8;
+        employeeRosterButton.Text = "配置名单…";
+        employeeRosterButton.UseVisualStyleBackColor = true;
+        employeeRosterButton.Click += employeeRosterButton_Click;
+        //
         // layoutHintLabel
         // 
         layoutHintLabel.ForeColor = Color.DimGray;
@@ -706,6 +731,8 @@ partial class FormOcr
     private NumericUpDown role4ColumnNumeric;
     private Label role4ColumnLabel;
     private Label layoutHintLabel;
+    private Button employeeRosterButton;
+    private Label employeeRosterStatusLabel;
     private GroupBox modelGroupBox;
     private Button initializeModelButton;
     private Label modelStatusLabel;

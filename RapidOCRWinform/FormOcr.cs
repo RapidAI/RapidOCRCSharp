@@ -30,6 +30,7 @@ public partial class FormOcr : Form
     private readonly ScheduleExtractor _extractor = new();
     private readonly ScheduleService _scheduleService = new();
     private readonly List<ScheduleCandidate> _duplicateCandidatesForReview = [];
+    private readonly List<EmployeeNameCorrection> _employeeNameCorrections = [];
 
     private OcrLite? _ocrEngine;
     private ScheduleExtractionResult? _lastExtraction;
@@ -58,6 +59,10 @@ public partial class FormOcr : Form
         monthPicker.Value = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
         role3ColumnNumeric.Value = NormalizeColumnSetting(_settings.Role3Column, -2);
         role4ColumnNumeric.Value = NormalizeColumnSetting(_settings.Role4Column, -1);
+        _settings.EmployeeNames = EmployeeNameResolver
+            .NormalizeEmployeeNames(_settings.EmployeeNames ?? [])
+            .ToList();
+        UpdateEmployeeRosterStatus();
         RememberAppliedSettings();
         _loaded = true;
         UpdateActionState();
@@ -289,6 +294,7 @@ public partial class FormOcr : Form
     {
         TableLayoutProfile profile = CreateLayoutProfile();
         _lastExtraction = _extractor.Extract(_images.SelectMany(static image => image.Tokens), profile);
+        ApplyEmployeeNameCorrections(_lastExtraction.Candidates);
         _lastBuild = _scheduleService.Build(
             monthPicker.Value.Year,
             monthPicker.Value.Month,
@@ -299,6 +305,95 @@ public partial class FormOcr : Form
         RememberAppliedSettings();
         _batchDiagnostics = FormatBatchDiagnostics(_lastExtraction, _lastBuild);
         UpdateDiagnosticsForSelection();
+    }
+
+    private void employeeRosterButton_Click(object? sender, EventArgs e)
+    {
+        using EmployeeRosterDialog dialog = new(_settings.EmployeeNames ?? []);
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        List<string> previousNames = _settings.EmployeeNames ?? [];
+        List<string> updatedNames = dialog.EmployeeNames.ToList();
+        _settings.EmployeeNames = updatedNames;
+        if (!_settings.TrySave(out string? errorMessage))
+        {
+            _settings.EmployeeNames = previousNames;
+            MessageBox.Show(
+                this,
+                $"员工名单无法保存，原配置未更改：\n{errorMessage}",
+                "保存失败",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+            return;
+        }
+
+        UpdateEmployeeRosterStatus();
+        if (_lastExtraction is not null && !_hasManualEdits)
+        {
+            try
+            {
+                ExtractAndBind();
+                SetStatus($"员工名单已保存（{updatedNames.Count} 人），当前结果已重新匹配");
+            }
+            catch (Exception exception)
+            {
+                SetStatus($"员工名单已保存（{updatedNames.Count} 人），下次识别时生效");
+                MessageBox.Show(
+                    this,
+                    $"名单已保存，但无法重新整理当前结果：\n{exception.Message}",
+                    "重新匹配失败",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+        }
+        else
+        {
+            string suffix = _hasManualEdits ? "；为保留手工修改，将在下次识别时生效" : string.Empty;
+            SetStatus($"员工名单已保存（{updatedNames.Count} 人）{suffix}");
+        }
+    }
+
+    private void ApplyEmployeeNameCorrections(IEnumerable<ScheduleCandidate> candidates)
+    {
+        EmployeeNameResolver resolver = new(_settings.EmployeeNames ?? []);
+        _employeeNameCorrections.Clear();
+        foreach (ScheduleCandidate candidate in candidates)
+        {
+            candidate.Role1 = ResolveEmployeeName(candidate, nameof(candidate.Role1), candidate.Role1, resolver);
+            candidate.Role2 = ResolveEmployeeName(candidate, nameof(candidate.Role2), candidate.Role2, resolver);
+            candidate.Role3 = ResolveEmployeeName(candidate, nameof(candidate.Role3), candidate.Role3, resolver);
+            candidate.Role4 = ResolveEmployeeName(candidate, nameof(candidate.Role4), candidate.Role4, resolver);
+        }
+    }
+
+    private string ResolveEmployeeName(
+        ScheduleCandidate candidate,
+        string role,
+        string recognizedName,
+        EmployeeNameResolver resolver)
+    {
+        string correctedName = resolver.Resolve(recognizedName);
+        if (!string.Equals(recognizedName.Trim(), correctedName, StringComparison.Ordinal))
+        {
+            _employeeNameCorrections.Add(new EmployeeNameCorrection(
+                candidate.SourceImageId,
+                candidate.RawDateText,
+                role,
+                recognizedName.Trim(),
+                correctedName));
+        }
+
+        return correctedName;
+    }
+
+    private void UpdateEmployeeRosterStatus()
+    {
+        int count = _settings.EmployeeNames?.Count ?? 0;
+        employeeRosterStatusLabel.Text = count > 0 ? $"员工名单：已配置 {count} 人" : "员工名单：尚未配置";
+        employeeRosterStatusLabel.ForeColor = count > 0 ? Color.DarkGreen : Color.DimGray;
     }
 
     private TableLayoutProfile CreateLayoutProfile() => new()
@@ -784,6 +879,13 @@ public partial class FormOcr : Form
         builder.AppendLine($"目标日期：{build.Rows.Count}");
         builder.AppendLine($"未定位/跨月记录：{build.UnlocatedCandidates.Count}");
         builder.AppendLine($"同日重复候选：{_duplicateCandidatesForReview.Count}");
+        builder.AppendLine($"姓名自动规范：{_employeeNameCorrections.Count}");
+
+        foreach (EmployeeNameCorrection correction in _employeeNameCorrections)
+        {
+            builder.AppendLine(
+                $"[姓名规范] {Path.GetFileName(correction.SourceImageId)} {correction.RawDateText} {correction.Role}: “{correction.OriginalName}” → “{correction.CorrectedName}”");
+        }
 
         IEnumerable<ScheduleIssue> batchIssues = extraction.Issues.Concat(build.Issues);
         foreach (ScheduleIssue issue in batchIssues)
@@ -842,6 +944,7 @@ public partial class FormOcr : Form
         _lastBuild = null;
         _batchDiagnostics = string.Empty;
         _duplicateCandidatesForReview.Clear();
+        _employeeNameCorrections.Clear();
         _editableRows.Clear();
         _rowBinding.ResetBindings(false);
         resultSummaryLabel.Text = "尚未整理。异常单元格将用浅红色标记，可直接双击修改。";
@@ -902,6 +1005,7 @@ public partial class FormOcr : Form
         monthPicker.Enabled = !busy;
         role3ColumnNumeric.Enabled = !busy;
         role4ColumnNumeric.Enabled = !busy;
+        employeeRosterButton.Enabled = !busy;
         scheduleGrid.ReadOnly = busy;
         if (message is not null)
         {
@@ -944,6 +1048,13 @@ public partial class FormOcr : Form
         nameof(ScheduleRow.Role4) => nameof(EditableScheduleRow.Role4),
         _ => null,
     };
+
+    private sealed record EmployeeNameCorrection(
+        string SourceImageId,
+        string RawDateText,
+        string Role,
+        string OriginalName,
+        string CorrectedName);
 
     internal static Size ReadImageSize(string path)
     {
