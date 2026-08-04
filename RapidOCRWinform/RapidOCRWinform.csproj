@@ -6,7 +6,10 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>RapidOCRSchedule</AssemblyName>
+    <AssemblyName>墨包</AssemblyName>
+    <AssemblyTitle>墨包</AssemblyTitle>
+    <Product>墨包</Product>
+    <ApplicationIcon>..\Assets\mobao.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
