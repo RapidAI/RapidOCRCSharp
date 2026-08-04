@@ -6,10 +6,32 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>RapidOCRSchedule</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\RapidOCRLib\RapidOCRLib.csproj" />
+    <ProjectReference Include="..\RapidOCRSchedule.Core\RapidOCRSchedule.Core.csproj" />
+    <ProjectReference Include="..\RapidOCRSchedule.Excel\RapidOCRSchedule.Excel.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\RapidOCRConsole\models\ch_PP-OCRv5_mobile_det.onnx" LogicalName="RapidOCRWinform.EmbeddedModels.ch_PP-OCRv5_mobile_det.onnx" />
+    <EmbeddedResource Include="..\RapidOCRConsole\models\ch_PP-OCRv5_rec_mobile_infer.onnx" LogicalName="RapidOCRWinform.EmbeddedModels.ch_PP-OCRv5_rec_mobile_infer.onnx" />
+    <EmbeddedResource Include="..\RapidOCRConsole\models\ch_ppocr_mobile_v2.0_cls_infer.onnx" LogicalName="RapidOCRWinform.EmbeddedModels.ch_ppocr_mobile_v2.0_cls_infer.onnx" />
+    <EmbeddedResource Include="..\RapidOCRConsole\models\ppocrv5_dict.txt" LogicalName="RapidOCRWinform.EmbeddedModels.ppocrv5_dict.txt" />
+  </ItemGroup>
+
+  <Target Name="RemoveNonRuntimePublishArtifacts"
+          AfterTargets="ComputeResolvedFilesToPublishList"
+          BeforeTargets="_ComputeFilesToBundle">
+    <ItemGroup>
+      <ResolvedFileToPublish
+        Remove="@(ResolvedFileToPublish)"
+        Condition="'%(ResolvedFileToPublish.Extension)' == '.pdb'
+                Or '%(ResolvedFileToPublish.Filename)%(ResolvedFileToPublish.Extension)' == 'onnxruntime.lib'
+                Or '%(ResolvedFileToPublish.Filename)%(ResolvedFileToPublish.Extension)' == 'onnxruntime_providers_shared.lib'" />
+    </ItemGroup>
+  </Target>
 
 </Project>

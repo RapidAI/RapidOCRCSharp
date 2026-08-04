@@ -24,6 +24,29 @@ RapidOCR 是一款完全开源免费、支持离线快速部署的多平台多�
 
 .Neter们，如果您觉得本项目对您的工作或学习有所帮助，恳请您不吝赐予一颗 ⭐ Star，给予我们宝贵的支持与鼓励！
 
+## 本地排班图片整理
+
+`RapidOCRWinform` 已提供面向排班表的完整桌面流程：
+
+1. 一次选择正好 4 张结构相同的排班图片（上传顺序不影响结果）。
+2. 选择目标年月；程序从每张图片提取日期、星期、前两个岗位以及右侧两个指定岗位。
+3. 4 张图片的记录按实际日期合并排序，只保留星期一至星期五；整月缺失的工作日会自动生成待填写行。
+4. 在结果表格中检查并修改日期、星期和姓名，然后导出为 `.xlsx`。
+
+程序会明确标记日期/星期无法识别、星期与日历不一致、岗位为空、同日重复、工作日缺失、跨月、列归属不确定和低置信度 OCR 等情况。原图和 OCR 坐标诊断保留在“原图与识别诊断”页，不会静默丢弃异常。
+
+默认列映射为从左到右第 1～4 列，以及倒数第 2、倒数第 1 列。若右侧目标区域不是表格最后两列，可在左侧把“岗位三列”“岗位四列”改为实际列序号；修改后会直接重新整理缓存的 OCR 结果，无需再次识别图片。
+
+```powershell
+dotnet run --project .\RapidOCRWinform\RapidOCRWinform.csproj
+```
+
+三个 ONNX 模型和 `ppocrv5_dict.txt` 已编译进 WinForms 程序；首次启动会校验并释放到用户模型缓存，不需要在程序旁放置 `models` 目录。也可以在界面中临时选择其他完整模型目录。核心日期/几何规则与 Excel OOXML 导出测试可用以下命令运行：
+
+```powershell
+dotnet test .\RapidOCRSchedule.Tests\RapidOCRSchedule.Tests.csproj
+```
+
 ### 👉快速入门
 > 下面以控制台应用来演示如何快速入门
 #### 1.增加一个控制台应用
@@ -92,7 +115,61 @@ Console.ReadKey();
 |-------|-------|--------|
 |核心库|RapidOCRLib|C#的RapidOCR核心封装库,提供众多同步、异步的Detection方法|
 |console应用|RapidOCRConsole|.net OCR的Console演示，自带PP-OCRv5轻量模型，可以直接运行,引用了上面的核心库RapidOCRLib,学习者以此项目为主|
-|winform应用|RapidOCRWinform|.net OCR的winform演示，可以直接运行,但不带模型，学习者可以从RapidOCRConsole目录拷贝模型|
+|winform应用|RapidOCRWinform|排班图片 OCR 桌面应用，内嵌 PP-OCRv5 模型，可发布为独立单文件 EXE|
+
+### 📦 Windows x64 离线打包
+
+`RapidOCRWinform` 可以发布为“框架依赖”或“自包含”应用：
+
+- **框架依赖包（体积较小）**：目标电脑必须安装 .NET 10 Desktop Runtime。
+- **自包含包（无需安装 .NET）**：包内携带 .NET 运行时，体积更大，但解压后即可离线运行。
+
+框架依赖发布命令：
+
+```powershell
+dotnet publish .\RapidOCRWinform\RapidOCRWinform.csproj `
+  -c Release `
+  -r win-x64 `
+  --self-contained false `
+  -p:PublishSingleFile=true `
+  -p:IncludeNativeLibrariesForSelfExtract=true `
+  -p:EnableCompressionInSingleFile=true
+```
+
+完全自包含发布命令：
+
+```powershell
+dotnet publish .\RapidOCRWinform\RapidOCRWinform.csproj `
+  -c Release `
+  -r win-x64 `
+  --self-contained true `
+  -p:PublishSingleFile=true `
+  -p:IncludeNativeLibrariesForSelfExtract=true `
+  -p:EnableCompressionInSingleFile=true
+```
+
+也可以直接使用仓库内已固化的发布配置：
+
+```powershell
+dotnet publish .\RapidOCRWinform\RapidOCRWinform.csproj `
+  -p:PublishProfile=StandaloneWinX64 `
+  -o .\dist\RapidOCRSchedule-standalone-win-x64
+```
+
+发布目录只需要一个文件：
+
+```text
+RapidOCRSchedule.exe
+```
+
+该 EXE 已包含 .NET 桌面运行时、OCR 原生库、三个 ONNX 模型和字典，不依赖 Python、Anaconda、CUDA、Office、已安装的 .NET 或联网服务，但限定为 Windows x64。首次启动会把模型校验后释放到 `%LOCALAPPDATA%\RapidOCRSchedule\model-cache`，.NET 单文件宿主也会把原生 DLL 释放到用户临时目录；这些都是自动管理的运行时缓存，不是需要随 EXE 分发的外部环境。
+
+可用无界面自检确认模型、ONNX Runtime 和 OpenCV 均能工作：
+
+```powershell
+$test = Start-Process .\RapidOCRSchedule.exe -ArgumentList --self-test -Wait -PassThru
+if ($test.ExitCode -ne 0) { throw "独立包自检失败" }
+```
 
 
 ### ❓ 参数说明及调参

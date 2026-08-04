@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace RapidOCRLib
 {
-    class AngleNet
+    class AngleNet : IDisposable
     {
         private readonly float[] MeanValues = { 127.5F, 127.5F, 127.5F };
         private readonly float[] NormValues = { 1.0F / 127.5F, 1.0F / 127.5F, 1.0F / 127.5F };
@@ -26,7 +26,19 @@ namespace RapidOCRLib
 
         ~AngleNet()
         {
-            angleNet.Dispose();
+            Dispose(false);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        private void Dispose(bool disposing)
+        {
+            angleNet?.Dispose();
+            angleNet = null;
         }
 
         public async Task InitModel(string path, int numThread)
@@ -40,10 +52,12 @@ namespace RapidOCRLib
                 angleNet = new InferenceSession(path, op);
                 inputNames = angleNet.InputMetadata.Keys.ToList();
 
-                // 从 ONNX 模型 metadata 读取输入尺寸，兼容 v2 (192x48) 和 v5 (160x80)
+                // Read static dimensions from the model when available. Some PaddleOCR
+                // classifier exports expose both spatial dimensions as dynamic (-1),
+                // in which case use the standard PP-OCR classifier input size.
                 var dims = angleNet.InputMetadata.First().Value.Dimensions;
-                _dstHeight = dims[2];
-                _dstWidth = dims[3];
+                _dstHeight = dims[2] > 0 ? dims[2] : 48;
+                _dstWidth = dims[3] > 0 ? dims[3] : 192;
 
                 await Task.CompletedTask;
             }
@@ -109,6 +123,11 @@ namespace RapidOCRLib
 
         private Angle GetAngle(Mat src)
         {
+            if (src == null || src.Rows <= 0 || src.Cols <= 0)
+            {
+                throw new ArgumentException("Angle classifier received an empty image.", nameof(src));
+            }
+
             Angle angle = new Angle();
             Mat angleImg = new Mat();
             CvInvoke.Resize(src, angleImg, new Size(_dstWidth, _dstHeight));

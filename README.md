@@ -41,6 +41,19 @@ If you find this project helpful, please consider giving us a ⭐ Star. Your sup
 
 ---
 
+## Local schedule-image organizer
+
+`RapidOCRWinform` now includes a complete four-image schedule workflow. Select exactly four structurally identical schedule images, choose the target year/month, run OCR, review the merged weekday-only table, edit any date or name, and export the six required columns to `.xlsx`.
+
+Records are merged by calendar date rather than upload order. Missing workdays, duplicate dates, invalid dates/weekdays, weekday mismatches, empty positions, multiple months, ambiguous columns, and low-confidence OCR are shown explicitly for manual review. The default layout uses columns 1–4 plus the final two columns; the two right-side column indices can be changed without rerunning OCR.
+
+```powershell
+dotnet run --project .\RapidOCRWinform\RapidOCRWinform.csproj
+dotnet test .\RapidOCRSchedule.Tests\RapidOCRSchedule.Tests.csproj
+```
+
+---
+
 ## 👉 Quick Start
 
 The following example demonstrates how to get started using a **.NET Console Application**.
@@ -130,7 +143,61 @@ Console.ReadKey();
 | ------------ | --------------- | ------------------------------------------------------------- |
 | Core Library | RapidOCRLib     | Core C# OCR wrapper library with sync/async APIs              |
 | Console App  | RapidOCRConsole | .NET console demo with built-in PP-OCRv5 model                |
-| WinForms App | RapidOCRWinform | WinForms demo (model not included; copy from console project) |
+| WinForms App | RapidOCRWinform | Schedule-image OCR desktop app with embedded PP-OCRv5 models |
+
+## 📦 Offline Windows x64 Packaging
+
+`RapidOCRWinform` can be published as either a framework-dependent or self-contained application:
+
+- **Framework-dependent (smaller):** the target computer must have the .NET 10 Desktop Runtime installed.
+- **Self-contained (no .NET installation):** the package includes the .NET runtime and is larger, but can run offline immediately after extraction.
+
+Framework-dependent publish command:
+
+```powershell
+dotnet publish .\RapidOCRWinform\RapidOCRWinform.csproj `
+  -c Release `
+  -r win-x64 `
+  --self-contained false `
+  -p:PublishSingleFile=true `
+  -p:IncludeNativeLibrariesForSelfExtract=true `
+  -p:EnableCompressionInSingleFile=true
+```
+
+Fully self-contained publish command:
+
+```powershell
+dotnet publish .\RapidOCRWinform\RapidOCRWinform.csproj `
+  -c Release `
+  -r win-x64 `
+  --self-contained true `
+  -p:PublishSingleFile=true `
+  -p:IncludeNativeLibrariesForSelfExtract=true `
+  -p:EnableCompressionInSingleFile=true
+```
+
+The repository also includes a reusable publish profile:
+
+```powershell
+dotnet publish .\RapidOCRWinform\RapidOCRWinform.csproj `
+  -p:PublishProfile=StandaloneWinX64 `
+  -o .\dist\RapidOCRSchedule-standalone-win-x64
+```
+
+The publish directory only needs one distributable file:
+
+```text
+RapidOCRSchedule.exe
+```
+
+The executable contains the .NET Desktop runtime, native OCR libraries, all three ONNX models, and the dictionary. It does not require Python, Anaconda, CUDA, Office, an installed .NET runtime, or an online service, but it is specific to Windows x64. On first launch it verifies and materializes the embedded models under `%LOCALAPPDATA%\RapidOCRSchedule\model-cache`; the .NET single-file host also extracts native libraries to the user's temporary directory. These are automatically managed runtime caches, not deployment prerequisites.
+
+Run the headless end-to-end check to verify model extraction, ONNX Runtime, OpenCV, and OCR inference:
+
+```powershell
+$test = Start-Process .\RapidOCRSchedule.exe -ArgumentList --self-test -Wait -PassThru
+if ($test.ExitCode -ne 0) { throw "Standalone package self-test failed" }
+```
 
 ---
 
