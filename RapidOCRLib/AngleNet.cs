@@ -16,9 +16,9 @@ namespace RapidOCRLib
     {
         private readonly float[] MeanValues = { 127.5F, 127.5F, 127.5F };
         private readonly float[] NormValues = { 1.0F / 127.5F, 1.0F / 127.5F, 1.0F / 127.5F };
-        private const int angleDstWidth = 192;
-        private const int angleDstHeight = 48;
         private const int angleCols = 2;
+        private int _dstWidth;
+        private int _dstHeight;
         private InferenceSession angleNet;
         private List<string> inputNames;
 
@@ -39,6 +39,12 @@ namespace RapidOCRLib
                 op.IntraOpNumThreads = numThread;
                 angleNet = new InferenceSession(path, op);
                 inputNames = angleNet.InputMetadata.Keys.ToList();
+
+                // 从 ONNX 模型 metadata 读取输入尺寸，兼容 v2 (192x48) 和 v5 (160x80)
+                var dims = angleNet.InputMetadata.First().Value.Dimensions;
+                _dstHeight = dims[2];
+                _dstWidth = dims[3];
+
                 await Task.CompletedTask;
             }
             catch (Exception ex)
@@ -105,7 +111,7 @@ namespace RapidOCRLib
         {
             Angle angle = new Angle();
             Mat angleImg = new Mat();
-            CvInvoke.Resize(src, angleImg, new Size(angleDstWidth, angleDstHeight));
+            CvInvoke.Resize(src, angleImg, new Size(_dstWidth, _dstHeight));
             Tensor<float> inputTensors = OcrUtils.SubstractMeanNormalize(angleImg, MeanValues, NormValues);
             var inputs = new List<NamedOnnxValue>
             {
