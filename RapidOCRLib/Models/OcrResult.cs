@@ -1,4 +1,4 @@
-﻿using Emgu.CV;
+using Emgu.CV;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Text;
@@ -70,16 +70,26 @@ namespace RapidOCRLib.Models
     {
         public List<TextBlock> TextBlocks { get; set; }
         public float DbNetTime { get; set; }
+        public float AngleNetTime { get; set; }
+        public float CrnnNetTime { get; set; }
+        public float PreprocessTime { get; set; }
+        public float PostprocessTime { get; set; }
         public Mat BoxImg { get; set; }
         public float DetectTime { get; set; }
         public string StrRes { get; set; }
+        /// <summary>当前推理使用的后端引擎信息，如 "DML(device 0)" / "CPU"。</summary>
+        public string EngineProvider { get; set; } = "Unknown";
 
         public override string ToString()
         {
             StringBuilder sb = new StringBuilder();
-            sb.AppendLine("OcrResult");
+            sb.AppendLine($"OcrResult [Engine: {EngineProvider}]");
             TextBlocks.ForEach(x => sb.Append(x));
+            sb.AppendLine($"├─PreprocessTime({PreprocessTime}ms)");
             sb.AppendLine($"├─DbNetTime({DbNetTime}ms)");
+            sb.AppendLine($"├─AngleNetTime({AngleNetTime}ms)");
+            sb.AppendLine($"├─CrnnNetTime({CrnnNetTime}ms)");
+            sb.AppendLine($"├─PostprocessTime({PostprocessTime}ms)");
             sb.AppendLine($"├─DetectTime({DetectTime}ms)");
             sb.AppendLine($"└─StrRes({StrRes})");
             return sb.ToString();

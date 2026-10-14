@@ -1,4 +1,4 @@
-﻿namespace RapidOCRWinform
+namespace RapidOCRWinform
 {
     partial class FormOcr
     {
@@ -62,6 +62,9 @@
             tableLayoutPanel1 = new TableLayoutPanel();
             partImgCheckBox = new CheckBox();
             debugCheckBox = new CheckBox();
+            useGpuCheckBox = new CheckBox();
+            label13 = new Label();
+            gpuDeviceIdNumeric = new NumericUpDown();
             panel1 = new Panel();
             pictureBox = new PictureBox();
             detectBtn = new Button();
@@ -74,6 +77,7 @@
             ((System.ComponentModel.ISupportInitialize)imgResizeNumeric).BeginInit();
             ((System.ComponentModel.ISupportInitialize)paddingNumeric).BeginInit();
             ((System.ComponentModel.ISupportInitialize)boxScoreThreshNumeric).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)gpuDeviceIdNumeric).BeginInit();
             tableLayoutPanel3.SuspendLayout();
             tableLayoutPanel1.SuspendLayout();
             panel1.SuspendLayout();
@@ -216,7 +220,7 @@
             detNameTextBox.Name = "detNameTextBox";
             detNameTextBox.Size = new Size(732, 27);
             detNameTextBox.TabIndex = 12;
-            detNameTextBox.Text = "ch_PP-OCRv5_mobile_det.onnx";
+            detNameTextBox.Text = "PP-OCRv6_det_medium.onnx";
             // 
             // label10
             // 
@@ -254,7 +258,7 @@
             recNameTextBox.Name = "recNameTextBox";
             recNameTextBox.Size = new Size(732, 27);
             recNameTextBox.TabIndex = 16;
-            recNameTextBox.Text = "ch_PP-OCRv5_rec_mobile_infer.onnx";
+            recNameTextBox.Text = "PP-OCRv6_rec_medium.onnx";
             // 
             // label12
             // 
@@ -273,7 +277,7 @@
             keysNameTextBox.Name = "keysNameTextBox";
             keysNameTextBox.Size = new Size(732, 27);
             keysNameTextBox.TabIndex = 18;
-            keysNameTextBox.Text = "ppocrv5_dict.txt";
+            keysNameTextBox.Text = "ppocrv6_dict.txt";
             // 
             // label5
             // 
@@ -324,8 +328,8 @@
             // doAngleCheckBox
             // 
             doAngleCheckBox.AutoSize = true;
-            doAngleCheckBox.Checked = true;
-            doAngleCheckBox.CheckState = CheckState.Checked;
+            doAngleCheckBox.Checked = false;
+            doAngleCheckBox.CheckState = CheckState.Unchecked;
             doAngleCheckBox.Location = new Point(6, 272);
             doAngleCheckBox.Margin = new Padding(4, 5, 4, 5);
             doAngleCheckBox.Name = "doAngleCheckBox";
@@ -423,7 +427,7 @@
             tableLayoutPanel3.Name = "tableLayoutPanel3";
             tableLayoutPanel3.RowCount = 1;
             tableLayoutPanel3.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            tableLayoutPanel3.Size = new Size(1135, 447);
+            tableLayoutPanel3.Size = new Size(1135, 550);
             tableLayoutPanel3.TabIndex = 16;
             // 
             // strRestTextBox
@@ -457,10 +461,13 @@
             tableLayoutPanel1.Controls.Add(mostAngleCheckBox, 1, 5);
             tableLayoutPanel1.Controls.Add(partImgCheckBox, 0, 6);
             tableLayoutPanel1.Controls.Add(debugCheckBox, 1, 6);
+            tableLayoutPanel1.Controls.Add(useGpuCheckBox, 0, 7);
+            tableLayoutPanel1.Controls.Add(label13, 0, 8);
+            tableLayoutPanel1.Controls.Add(gpuDeviceIdNumeric, 1, 8);
             tableLayoutPanel1.Location = new Point(4, 5);
             tableLayoutPanel1.Margin = new Padding(4, 5, 4, 5);
             tableLayoutPanel1.Name = "tableLayoutPanel1";
-            tableLayoutPanel1.RowCount = 8;
+            tableLayoutPanel1.RowCount = 10;
             tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 51F));
             tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 51F));
             tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 51F));
@@ -469,7 +476,9 @@
             tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 51F));
             tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 51F));
             tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 51F));
-            tableLayoutPanel1.Size = new Size(246, 433);
+            tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 51F));
+            tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 51F));
+            tableLayoutPanel1.Size = new Size(246, 535);
             tableLayoutPanel1.TabIndex = 2;
             // 
             // partImgCheckBox
@@ -495,6 +504,38 @@
             debugCheckBox.Text = "DebugImg";
             debugCheckBox.UseVisualStyleBackColor = true;
             debugCheckBox.CheckedChanged += debugCheckBox_CheckedChanged;
+            // 
+            // useGpuCheckBox
+            // 
+            useGpuCheckBox.AutoSize = true;
+            useGpuCheckBox.Location = new Point(6, 377);
+            useGpuCheckBox.Margin = new Padding(4, 5, 4, 5);
+            useGpuCheckBox.Name = "useGpuCheckBox";
+            useGpuCheckBox.Size = new Size(86, 24);
+            useGpuCheckBox.TabIndex = 30;
+            useGpuCheckBox.Text = "UseGpu";
+            useGpuCheckBox.UseVisualStyleBackColor = true;
+            // 
+            // label13
+            // 
+            label13.AutoSize = true;
+            label13.Location = new Point(6, 429);
+            label13.Margin = new Padding(4, 0, 4, 0);
+            label13.Name = "label13";
+            label13.Size = new Size(100, 20);
+            label13.TabIndex = 31;
+            label13.Text = "GpuDeviceId";
+            // 
+            // gpuDeviceIdNumeric
+            // 
+            gpuDeviceIdNumeric.Location = new Point(128, 434);
+            gpuDeviceIdNumeric.Margin = new Padding(4, 5, 4, 5);
+            gpuDeviceIdNumeric.Maximum = new decimal(new int[] { 8, 0, 0, 0 });
+            gpuDeviceIdNumeric.Minimum = new decimal(new int[] { 0, 0, 0, 0 });
+            gpuDeviceIdNumeric.Name = "gpuDeviceIdNumeric";
+            gpuDeviceIdNumeric.Size = new Size(111, 27);
+            gpuDeviceIdNumeric.TabIndex = 32;
+            gpuDeviceIdNumeric.Value = new decimal(new int[] { 0, 0, 0, 0 });
             // 
             // panel1
             // 
@@ -545,7 +586,7 @@
             // 
             ocrResultTextBox.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             ocrResultTextBox.Font = new Font("宋体", 9F);
-            ocrResultTextBox.Location = new Point(21, 839);
+            ocrResultTextBox.Location = new Point(21, 942);
             ocrResultTextBox.Margin = new Padding(4, 5, 4, 5);
             ocrResultTextBox.Multiline = true;
             ocrResultTextBox.Name = "ocrResultTextBox";
@@ -557,7 +598,7 @@
             // 
             AutoScaleDimensions = new SizeF(9F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1176, 1268);
+            ClientSize = new Size(1176, 1370);
             Controls.Add(tableLayoutPanel2);
             Controls.Add(tableLayoutPanel3);
             Controls.Add(detectBtn);
@@ -575,6 +616,7 @@
             ((System.ComponentModel.ISupportInitialize)imgResizeNumeric).EndInit();
             ((System.ComponentModel.ISupportInitialize)paddingNumeric).EndInit();
             ((System.ComponentModel.ISupportInitialize)boxScoreThreshNumeric).EndInit();
+            ((System.ComponentModel.ISupportInitialize)gpuDeviceIdNumeric).EndInit();
             tableLayoutPanel3.ResumeLayout(false);
             tableLayoutPanel3.PerformLayout();
             tableLayoutPanel1.ResumeLayout(false);
@@ -622,6 +664,9 @@
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;
         private System.Windows.Forms.CheckBox partImgCheckBox;
         private System.Windows.Forms.CheckBox debugCheckBox;
+        private System.Windows.Forms.CheckBox useGpuCheckBox;
+        private System.Windows.Forms.Label label13;
+        private System.Windows.Forms.NumericUpDown gpuDeviceIdNumeric;
         private System.Windows.Forms.Button detectBtn;
         private System.Windows.Forms.Button initBtn;
         private System.Windows.Forms.TextBox ocrResultTextBox;

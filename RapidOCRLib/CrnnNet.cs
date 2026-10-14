@@ -1,4 +1,4 @@
-﻿using Emgu.CV;
+using Emgu.CV;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using RapidOCRLib.Models;
@@ -23,6 +23,8 @@ namespace RapidOCRLib
         private List<string> keys;
         private List<string> inputNames;
 
+        public string ProviderInfo { get; private set; } = "NotInitialized";
+
         public CrnnNet() { }
 
         ~CrnnNet()
@@ -30,17 +32,16 @@ namespace RapidOCRLib
             crnnNet?.Dispose();
         }
 
-        public async Task InitModel(string path, string keysPath, int numThread)
+        public async Task InitModel(string path, string keysPath, int numThread, bool useGpu = false, int gpuDeviceId = 0)
         {
             try
             {
-                SessionOptions op = new SessionOptions();
-                op.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_EXTENDED;
-                op.InterOpNumThreads = numThread;
-                op.IntraOpNumThreads = numThread;
+                SessionOptions op = OcrUtils.CreateSessionOptions(OcrUtils.NetKind.Recognition, numThread, useGpu, gpuDeviceId, out var providerInfo);
+                ProviderInfo = providerInfo;
+                Console.WriteLine($"[CrnnNet] Loading model with provider: {providerInfo}");
                 crnnNet = new InferenceSession(path, op);
                 inputNames = crnnNet.InputMetadata.Keys.ToList();
-                keys = InitKeys(keysPath);
+                keys = InitKeys(crnnNet, keysPath);
                 await Task.CompletedTask;
             }
             catch (Exception ex)
@@ -49,7 +50,36 @@ namespace RapidOCRLib
                 throw;
             }
         }
-        private List<string> InitKeys(string path)
+
+        private List<string> InitKeys(InferenceSession session, string keysPath)
+        {
+            // PP-OCRv5/v6 rec models embed the character dictionary in ONNX metadata.
+            if (session.ModelMetadata.CustomMetadataMap.TryGetValue("character", out string characters))
+            {
+                List<string> keys = new List<string>();
+                keys.Add("#");
+                string[] lines = characters.Split('\n');
+                int count = lines.Length;
+                if (count > 0 && lines[count - 1].Length == 0)
+                {
+                    count--;
+                }
+                for (int i = 0; i < count; i++)
+                {
+                    keys.Add(lines[i]);
+                }
+                keys.Add(" ");
+                Console.WriteLine($"keys Size = {keys.Count}");
+                return keys;
+            }
+            if (string.IsNullOrWhiteSpace(keysPath))
+            {
+                throw new Exception("The rec model does not embed a character dictionary and no key dictory file was provided.");
+            }
+            return InitKeysFromFile(keysPath);
+        }
+
+        private List<string> InitKeysFromFile(string path)
         {
             StreamReader sr = new StreamReader(path, Encoding.UTF8);
             List<string> keys = new List<string>();

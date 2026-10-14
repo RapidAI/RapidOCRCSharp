@@ -1,4 +1,4 @@
-﻿using Emgu.CV;
+using Emgu.CV;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Reg;
 using Emgu.CV.Structure;
@@ -19,6 +19,7 @@ namespace RapidOCRLib
         private DbNet dbNet;
         private AngleNet angleNet;
         private CrnnNet crnnNet;
+        private bool hasAngleNet;
 
         /// <summary>
         /// The path of the Det model file.
@@ -64,12 +65,30 @@ namespace RapidOCRLib
         }
 
         /// <summary>
+        /// Whether GPU acceleration is enabled for this engine instance.
+        /// </summary>
+        public bool UseGpu { get; private set; }
+
+        /// <summary>
+        /// The GPU device ID used when UseGpu is enabled.
+        /// </summary>
+        public int GpuDeviceId { get; private set; }
+
+        /// <summary>
+        /// 当前引擎实例的三个子网执行后端（Det / Angle / Rec）。
+        /// 在 InitModels 完成后即可读取；示例：
+        ///   "Det:DML(device 0) / Angle:DML(device 0) / Rec:DML(device 0)"
+        ///   "Det:CPU (DML init failed: xxx) / Angle:CPU / Rec:CPU"
+        /// </summary>
+        public string EngineStatus { get; private set; } = "未初始化";
+
+        /// <summary>
         /// Initialize OCR Engine
         /// </summary>
         /// <returns></returns>
         public async Task InitModels()
         {
-            await InitModels(this.DetPath, this.ClsPath, this.RecPath, this.KeyDicPath, 0);
+            await InitModels(this.DetPath, this.ClsPath, this.RecPath, this.KeyDicPath, 0, false, 0);
         }
 
         /// <summary>
@@ -79,7 +98,7 @@ namespace RapidOCRLib
         /// <returns></returns>
         public async Task InitModels(ModeOptions options)
         {
-            await InitModels(options.DetPath, options.ClsPath, options.RecPath, options.KeyDicPath, options.ThreadNum);
+            await InitModels(options.DetPath, options.ClsPath, options.RecPath, options.KeyDicPath, options.ThreadNum, options.UseGpu, options.GpuDeviceId);
         }
 
         /// <summary>
@@ -90,8 +109,10 @@ namespace RapidOCRLib
         /// <param name="recPath">The path of the Rec model file.</param>
         /// <param name="keysPath">The path of the Key dictionary file.</param>
         /// <param name="numThread">The number of CPU threads to use. If set to 0 (the default), the system's logical CPU 70% cores will be used.</param>
+        /// <param name="useGpu">Whether to use GPU (DirectML) acceleration. Default is false.</param>
+        /// <param name="gpuDeviceId">GPU device ID to use when useGpu is enabled. Default is 0.</param>
         /// <returns></returns>
-        public async Task InitModels(string detPath, string clsPath, string recPath, string keysPath, int numThread = 0)
+        public async Task InitModels(string detPath, string clsPath, string recPath, string keysPath, int numThread = 0, bool useGpu = false, int gpuDeviceId = 0)
         {
             try
             {
@@ -101,9 +122,22 @@ namespace RapidOCRLib
                 {
                     ThreadNum = numThread;
                 }
-                await dbNet.InitModel(this.DetPath, ThreadNum);
-                await angleNet.InitModel(this.ClsPath, ThreadNum);
-                await crnnNet.InitModel(this.RecPath, keysPath, ThreadNum);
+                UseGpu = useGpu;
+                GpuDeviceId = gpuDeviceId;
+                await dbNet.InitModel(this.DetPath, ThreadNum, useGpu, gpuDeviceId);
+                if (!string.IsNullOrWhiteSpace(this.ClsPath))
+                {
+                    await angleNet.InitModel(this.ClsPath, ThreadNum, useGpu, gpuDeviceId);
+                    hasAngleNet = true;
+                }
+                else
+                {
+                    hasAngleNet = false;
+                }
+                await crnnNet.InitModel(this.RecPath, keysPath, ThreadNum, useGpu, gpuDeviceId);
+
+                string angInfo = hasAngleNet ? angleNet.ProviderInfo : "(N/A)";
+                EngineStatus = $"Det:{dbNet.ProviderInfo} / Angle:{angInfo} / Rec:{crnnNet.ProviderInfo}";
             }
             catch (Exception ex)
             {
@@ -126,9 +160,15 @@ namespace RapidOCRLib
         private void _CheckModelFilesExist()
         {
             _ = File.Exists(this.DetPath) ? true : throw new Exception("The det model file does not exist.");
-            _ = File.Exists(this.ClsPath) ? true : throw new Exception("The cls model file does not exist.");
+            if (!string.IsNullOrWhiteSpace(this.ClsPath))
+            {
+                _ = File.Exists(this.ClsPath) ? true : throw new Exception("The cls model file does not exist.");
+            }
             _ = File.Exists(this.RecPath) ? true : throw new Exception("The rec model file does not exist.");
-            _ = File.Exists(this.KeyDicPath) ? true : throw new Exception("The key dictory file does not exist.");
+            if (!string.IsNullOrWhiteSpace(this.KeyDicPath))
+            {
+                _ = File.Exists(this.KeyDicPath) ? true : throw new Exception("The key dictory file does not exist.");
+            }
         }
 
         /// <summary>
@@ -269,21 +309,34 @@ namespace RapidOCRLib
             int thickness = OcrUtils.GetThickness(src);
             Console.WriteLine("=====Start detect=====");
             var startTicks = DateTime.Now.Ticks;
+            long tPrev;
 
             Console.WriteLine("---------- step: dbNet getTextBoxes ----------");
+            tPrev = DateTime.Now.Ticks;
             var textBoxes = dbNet.GetTextBoxes(src, scale, boxScoreThresh, boxThresh, unClipRatio);
-            var dbNetTime = (DateTime.Now.Ticks - startTicks) / 10000F;
+            var dbNetTime = (DateTime.Now.Ticks - tPrev) / 10000F;
 
             Console.WriteLine($"TextBoxesSize({textBoxes.Count})");
             textBoxes.ForEach(x => Console.WriteLine(x));
-            //Console.WriteLine($"dbNetTime({dbNetTime}ms)");
 
             Console.WriteLine("---------- step: drawTextBoxes ----------");
+            tPrev = DateTime.Now.Ticks;
             OcrUtils.DrawTextBoxes(textBoxPaddingImg, textBoxes, thickness);
-            //CvInvoke.Imshow("ResultPadding", textBoxPaddingImg);
+            var drawBoxesTime = (DateTime.Now.Ticks - tPrev) / 10000F;
 
             //---------- getPartImages ----------
+            tPrev = DateTime.Now.Ticks;
             List<Mat> partImages = OcrUtils.GetPartImages(src, textBoxes);
+            // Skip degenerate detections whose crops are empty; the angle and recognition nets cannot process them.
+            for (int i = partImages.Count - 1; i >= 0; i--)
+            {
+                if (partImages[i].IsEmpty || partImages[i].Rows == 0 || partImages[i].Cols == 0)
+                {
+                    partImages.RemoveAt(i);
+                    textBoxes.RemoveAt(i);
+                }
+            }
+            var cropPartTime = (DateTime.Now.Ticks - tPrev) / 10000F;
             if (isPartImg)
             {
                 for (int i = 0; i < partImages.Count; i++)
@@ -292,11 +345,15 @@ namespace RapidOCRLib
                 }
             }
 
+            float preprocessTime = (drawBoxesTime + cropPartTime);
+
             Console.WriteLine("---------- step: angleNet getAngles ----------");
-            List<Angle> angles = angleNet.GetAngles(partImages, doAngle, mostAngle);
-            //angles.ForEach(x => Console.WriteLine(x));
+            tPrev = DateTime.Now.Ticks;
+            List<Angle> angles = angleNet.GetAngles(partImages, doAngle && hasAngleNet, mostAngle);
+            var angleNetTime = (DateTime.Now.Ticks - tPrev) / 10000F;
 
             //Rotate partImgs
+            tPrev = DateTime.Now.Ticks;
             for (int i = 0; i < partImages.Count; ++i)
             {
                 if (angles[i].Index == 1)
@@ -308,11 +365,14 @@ namespace RapidOCRLib
                     CvInvoke.Imshow($"DebugImg({i})", partImages[i]);
                 }
             }
+            var rotatePartTime = (DateTime.Now.Ticks - tPrev) / 10000F;
 
             Console.WriteLine("---------- step: crnnNet getTextLines ----------");
+            tPrev = DateTime.Now.Ticks;
             List<TextLine> textLines = crnnNet.GetTextLines(partImages);
-            //textLines.ForEach(x => Console.WriteLine(x));
+            var crnnNetTime = (DateTime.Now.Ticks - tPrev) / 10000F;
 
+            tPrev = DateTime.Now.Ticks;
             List<TextBlock> textBlocks = new List<TextBlock>();
             for (int i = 0; i < textLines.Count; ++i)
             {
@@ -328,11 +388,6 @@ namespace RapidOCRLib
                 textBlock.BlockTime = angles[i].Time + textLines[i].Time;
                 textBlocks.Add(textBlock);
             }
-            //textBlocks.ForEach(x => Console.WriteLine(x));
-
-            var endTicks = DateTime.Now.Ticks;
-            var fullDetectTime = (endTicks - startTicks) / 10000F;
-            //Console.WriteLine($"fullDetectTime({fullDetectTime}ms)");
 
             //cropped to original size
             Mat boxImg = new Mat(textBoxPaddingImg, originRect);
@@ -340,12 +395,25 @@ namespace RapidOCRLib
             StringBuilder strRes = new StringBuilder();
             textBlocks.ForEach(x => strRes.AppendLine(x.Text));
 
+            var postprocessTime = (rotatePartTime + (DateTime.Now.Ticks - tPrev)) / 10000F;
+
+            var endTicks = DateTime.Now.Ticks;
+            var fullDetectTime = (endTicks - startTicks) / 10000F;
+
+            // 用三个子网的实际 provider 拼接显示；若不一致（比如某子网回退CPU）也能一眼看到
+            string provider = $"Det:{dbNet.ProviderInfo} / Angle:{angleNet.ProviderInfo} / Rec:{crnnNet.ProviderInfo}";
+
             OcrResult ocrResult = new OcrResult();
             ocrResult.TextBlocks = textBlocks;
             ocrResult.DbNetTime = dbNetTime;
+            ocrResult.AngleNetTime = angleNetTime;
+            ocrResult.CrnnNetTime = crnnNetTime;
+            ocrResult.PreprocessTime = preprocessTime;
+            ocrResult.PostprocessTime = postprocessTime;
             ocrResult.BoxImg = boxImg;
             ocrResult.DetectTime = fullDetectTime;
             ocrResult.StrRes = strRes.ToString();
+            ocrResult.EngineProvider = provider;
 
             return ocrResult;
         }

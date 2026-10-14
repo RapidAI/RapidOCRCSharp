@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+using System;
 
 namespace RapidOCRLib.Models
 {
@@ -26,5 +24,13 @@ namespace RapidOCRLib.Models
         /// cpu thread number,default is 70% of toal logic cpu core numbers.
         /// </summary>
         public int ThreadNum { get; set; } = (int)(Environment.ProcessorCount * 0.7);
+        /// <summary>
+        /// Whether to use GPU acceleration via DirectML (Windows built-in DX12 GPU acceleration).
+        /// </summary>
+        public bool UseGpu { get; set; } = false;
+        /// <summary>
+        /// GPU device ID to use when UseGpu is enabled. Default is 0.
+        /// </summary>
+        public int GpuDeviceId { get; set; } = 0;
     }
 }

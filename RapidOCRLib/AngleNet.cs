@@ -1,4 +1,4 @@
-﻿using Emgu.CV;
+using Emgu.CV;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Structure;
 using Microsoft.ML.OnnxRuntime;
@@ -22,28 +22,29 @@ namespace RapidOCRLib
         private InferenceSession angleNet;
         private List<string> inputNames;
 
+        public string ProviderInfo { get; private set; } = "NotInitialized";
+
         public AngleNet() { }
 
         ~AngleNet()
         {
-            angleNet.Dispose();
+            angleNet?.Dispose();
         }
 
-        public async Task InitModel(string path, int numThread)
+        public async Task InitModel(string path, int numThread, bool useGpu = false, int gpuDeviceId = 0)
         {
             try
             {
-                SessionOptions op = new SessionOptions();
-                op.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_EXTENDED;
-                op.InterOpNumThreads = numThread;
-                op.IntraOpNumThreads = numThread;
+                SessionOptions op = OcrUtils.CreateSessionOptions(OcrUtils.NetKind.Classification, numThread, useGpu, gpuDeviceId, out var providerInfo);
+                ProviderInfo = providerInfo;
+                Console.WriteLine($"[AngleNet] Loading model with provider: {providerInfo}");
                 angleNet = new InferenceSession(path, op);
                 inputNames = angleNet.InputMetadata.Keys.ToList();
 
                 // 从 ONNX 模型 metadata 读取输入尺寸，兼容 v2 (192x48) 和 v5 (160x80)
                 var dims = angleNet.InputMetadata.First().Value.Dimensions;
-                _dstHeight = dims[2];
-                _dstWidth = dims[3];
+                _dstHeight = dims.Length > 2 && dims[2] > 0 ? dims[2] : 48;
+                _dstWidth = dims.Length > 3 && dims[3] > 0 ? dims[3] : 192;
 
                 await Task.CompletedTask;
             }

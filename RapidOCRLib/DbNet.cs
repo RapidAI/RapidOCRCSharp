@@ -1,4 +1,4 @@
-﻿using Clipper2Lib;
+using Clipper2Lib;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Structure;
@@ -23,21 +23,22 @@ namespace RapidOCRLib
 
         private List<string> inputNames;
 
+        public string ProviderInfo { get; private set; } = "NotInitialized";
+
         public DbNet() { }
 
         ~DbNet()
         {
-            dbNet.Dispose();
+            dbNet?.Dispose();
         }
 
-        public async Task InitModel(string path, int numThread)
+        public async Task InitModel(string path, int numThread, bool useGpu = false, int gpuDeviceId = 0)
         {
             try
             {
-                SessionOptions op = new SessionOptions();
-                op.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_EXTENDED;
-                op.InterOpNumThreads = numThread;
-                op.IntraOpNumThreads = numThread;
+                SessionOptions op = OcrUtils.CreateSessionOptions(OcrUtils.NetKind.Detection, numThread, useGpu, gpuDeviceId, out var providerInfo);
+                ProviderInfo = providerInfo;
+                Console.WriteLine($"[DbNet] Loading model with provider: {providerInfo}");
                 dbNet = new InferenceSession(path, op);
                 inputNames = dbNet.InputMetadata.Keys.ToList();
                 await Task.CompletedTask;
