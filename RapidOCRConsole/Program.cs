@@ -16,8 +16,10 @@ OcrLite ocrEngin = new OcrLite()
 };
 
 await ocrEngin.InitModels();
-//get the image will be ocr.
-var demoWillOCRFile = Path.Combine(AppContext.BaseDirectory, "Assets", "demo.png");
+// Use the first command-line argument when supplied; otherwise run the bundled demo.
+var demoWillOCRFile = args.Length > 0
+    ? Path.GetFullPath(args[0])
+    : Path.Combine(AppContext.BaseDirectory, "Assets", "demo.png");
 //ocr detect
 var result = ocrEngin.Detect(demoWillOCRFile, 50);
 if (result != null)
@@ -41,6 +43,3 @@ if (result != null)
     Console.WriteLine("显示strResult");
     Console.WriteLine(result.StrRes);
 }
-
-
-Console.ReadKey();

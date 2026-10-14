@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 
 namespace RapidOCRLib
 {
-    class DbNet
+    class DbNet : IDisposable
     {
         private readonly float[] MeanValues = { 0.485F * 255F, 0.456F * 255F, 0.406F * 255F };
         private readonly float[] NormValues = { 1.0F / 0.229F / 255.0F, 1.0F / 0.224F / 255.0F, 1.0F / 0.225F / 255.0F };
@@ -27,7 +27,19 @@ namespace RapidOCRLib
 
         ~DbNet()
         {
-            dbNet.Dispose();
+            Dispose(false);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        private void Dispose(bool disposing)
+        {
+            dbNet?.Dispose();
+            dbNet = null;
         }
 
         public async Task InitModel(string path, int numThread)
@@ -206,32 +218,7 @@ namespace RapidOCRLib
 
         public static int CompareByX(PointF left, PointF right)
         {
-            if (left == null && right == null)
-            {
-                return 1;
-            }
-
-            if (left == null)
-            {
-                return 0;
-            }
-
-            if (right == null)
-            {
-                return 1;
-            }
-
-            if (left.X > right.X)
-            {
-                return 1;
-            }
-
-            if (left.X == right.X)
-            {
-                return 0;
-            }
-
-            return -1;
+            return left.X.CompareTo(right.X);
         }
 
         private static double GetScore(VectorOfPoint contours, Mat fMapMat)

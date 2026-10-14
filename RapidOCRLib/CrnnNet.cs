@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace RapidOCRLib
 {
-    class CrnnNet
+    class CrnnNet : IDisposable
     {
         private readonly float[] MeanValues = { 127.5F, 127.5F, 127.5F };
         private readonly float[] NormValues = { 1.0F / 127.5F, 1.0F / 127.5F, 1.0F / 127.5F };
@@ -27,7 +27,19 @@ namespace RapidOCRLib
 
         ~CrnnNet()
         {
+            Dispose(false);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        private void Dispose(bool disposing)
+        {
             crnnNet?.Dispose();
+            crnnNet = null;
         }
 
         public async Task InitModel(string path, string keysPath, int numThread)

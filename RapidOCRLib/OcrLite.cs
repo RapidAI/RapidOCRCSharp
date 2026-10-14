@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace RapidOCRLib
 {
-    public partial class OcrLite
+    public partial class OcrLite : IDisposable
     {
         public bool isPartImg { get; set; }
         public bool isDebugImg { get; set; }
@@ -49,6 +49,17 @@ namespace RapidOCRLib
             dbNet = new DbNet();
             angleNet = new AngleNet();
             crnnNet = new CrnnNet();
+        }
+
+        /// <summary>
+        /// Releases the native ONNX Runtime sessions owned by this OCR engine.
+        /// </summary>
+        public void Dispose()
+        {
+            dbNet.Dispose();
+            angleNet.Dispose();
+            crnnNet.Dispose();
+            GC.SuppressFinalize(this);
         }
         /// <summary>
         /// constructor
